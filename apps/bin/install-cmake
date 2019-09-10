@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# Steps to install cmake of an appropriate version.
+
+function Die() {
+  perl -le 'print chr(33)x80'
+  echo "Fatal: $*" 1>&2
+  exit 1
+}
+
+if [[ "$CMAKE_VERSION" == '' || "$CMAKE_BUILD" == '' ]]; then
+  Die "Missing required environment variables: CMAKE_VERSION and CMAKE_BUILD"
+fi
+FULL_VERS="$CMAKE_VERSION.$CMAKE_BUILD"
+
+# Setup source directory
+if [[ "$SRC" != '' && -d $SRC ]]; then
+  echo "Using SRC=$SRC"
+fi
+if [[ "$APPS" != '' ]]; then
+  SRC="$APPS/src"
+else
+  SRC="$(pwd)/src"
+fi
+mkdir -p $SRC || Die "Failed to find/create $SRC directory"
+cd $SRC
+
+# Clean
+rm -fr cmake-$FULL_VERS{,.tar.gz}
+
+# Download and unpack
+CMAKE_URL="https://cmake.org/files/v$CMAKE_VERSION/cmake-$FULL_VERS.tar.gz"
+wget $CMAKE_URL || Die "Failed to download cmake $FULL_VERS"
+tar -xzvf cmake-$FULL_VERS.tar.gz || Die "Failed to extract cmake-$FULL_VERS.tar.gz"
+
+# Build & install
+cd cmake-$FULL_VERS/
+./bootstrap --qt-gui --sphinx-man && make && make install
+
+cd -
+# Clean up
+rm -fr cmake-$FULL_VERS{,.tar.gz}

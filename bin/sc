@@ -1,0 +1,3 @@
+#!/bin/bash
+
+DO docker run --rm -ti -v $(pwd):/home/work systemcc "$@"

@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# Steps to install SystemC
+
+function Die() {
+  perl -le 'print chr(33)x80'
+  echo "Fatal: $*" 1>&2
+  exit 1
+}
+
+# Environment variables
+export CMAKE_INSTALL_PREFIX=$APPS/systemc
+export CMAKE_CXX_STANDARD=17
+export CXX=g++
+export CC=gcc
+
+# Setup source directory
+if [[ "$SRC" != '' && -d $SRC ]]; then
+  echo "Using SRC=$SRC"
+fi
+if [[ "$APPS" != '' ]]; then
+  SRC="$APPS/src"
+else
+  SRC="$(pwd)/src"
+fi
+mkdir -p $SRC || Die "Failed to find/create $SRC directory"
+cd $SRC
+
+# Clean
+rm -fr systemc
+
+# Download
+git clone https://github.com/accellera-official/systemc.git
+cd systemc
+
+mkdir build
+cd build
+cmake ..
+
+perl -pi -e '$v=q{CMAKE_INSTALL_PREFIX};if(m{^$v:}){s{=.*}{=$ENV{$v}}}' CMakeCache.txt
+perl -pi -e '$v=q{CMAKE_CXX_STANDARD};if(m{^$v:}){s{=.*}{=$ENV{$v}}}' CMakeCache.txt
+touch /apps/src/systemc/docs/tlm/ChangeLog
+
+cmake ..
+make
+make check
+make install
+
+# Cleanup

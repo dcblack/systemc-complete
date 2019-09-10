@@ -1,0 +1,3 @@
+[submodule "apps/sc-templates"]
+	path = apps/sc-templates
+	url = git@github.com:dcblack/sc-templates.git

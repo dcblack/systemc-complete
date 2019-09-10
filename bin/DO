@@ -1,0 +1,123 @@
+#!/usr/bin/perl
+eval 'exec perl -S $0 ${1+"$@"}'
+  if 0;#running_under_some_shell;
+
+
+our %OPT;
+$OPT{-delay}  = 0;# built-in default is immediate
+$OPT{-delay}  = $ENV{DELAY} if exists $ENV{DELAY}   and $ENV{DELAY}>0;
+$OPT{-color}  = 0;# built-in default is to be black-n-white
+$OPT{-quiet}  = 1 if exists $ENV{COLOR}   and $ENV{COLOR}>0;
+$OPT{-quiet}  = 0;# built-in default is to be verbose
+$OPT{-quiet}  = 0 if exists $ENV{VERBOSE}   and $ENV{VERBOSE}>0;
+$OPT{-quiet}  = 1 if exists $ENV{QUIET}     and $ENV{QUIET}>0;
+$OPT{-banner} = 1 if exists $ENV{DO_BANNER} and $ENV{DO_BANNER}>0;
+while (@ARGV and $ARGV[0] =~ m{^-}) {
+  my $arg = shift @ARGV;
+  if ($arg =~ m{^-{1,2}(?:a|append)=?}) {
+    $OPT{-append} = 1;
+    if ($arg =~ m{=}) {
+      $OPT{-logfile} = $';
+    } elsif (not exists $OPT{-logfile}) {
+      $OPT{-logfile} = 'do.log';
+      $OPT{-logfile} = $ENV{LOGFILE} if exists $ENV{LOGFILE} and $ENV{LOGFILE} ne '';
+    }#endif
+  } elsif ($arg =~ m{^-{1,2}(?:cd|C|d)$}) {
+    chdir shift @ARGV;
+  } elsif ($arg =~ m{^-{1,2}(?:banner|header)$}) {
+    $OPT{-banner} = 1;
+  } elsif ($arg =~ m{^-{1,2}(?:c|color)$}) {
+    $OPT{-color} = 1;
+  } elsif ($arg =~ m{^-{1,2}(?:nc|nocolor)$}) {
+    $OPT{-color} = 0;
+  } elsif ($arg =~ m{^-{1,2}(?:delay)$}) {
+    $OPT{-delay} = shift @ARGV;
+  } elsif ($arg =~ m{^-{1,2}(?:l|log|logfile)=?}) {
+    if ($arg =~ m{=}) {
+      $OPT{-logfile} = $';
+    } elsif (not exists $OPT{-logfile}) {
+      $OPT{-logfile} = 'do.log';
+      $OPT{-logfile} = $ENV{LOGFILE} if exists $ENV{LOGFILE} and $ENV{LOGFILE} ne '';
+    }#endif
+  } elsif ($arg =~ m{^-{1,2}(?:q|quiet)$}) {
+    $OPT{-quiet} = 1;
+  } elsif ($arg =~ m{^-{1,2}(?:v|verbose)$}) {
+    $OPT{-quiet} = 0;
+  } elsif ($arg =~ m{^-(\d+)$}) {
+    $OPT{-delay} = $1;
+  }#endif
+}#endwhile
+
+sub opt($) { return (exists $OPT{$_[0]} and ($OPT{$_[0]} ne 0))?1:0; }
+
+if (opt -logfile) {
+  if (opt -append) {
+    open STDLOG,">>",$OPT{-logfile};
+    printf STDLOG "# Date: %s\n",scalar localtime if -s $OPT{-logfile} == 0;
+  } else {
+    open STDLOG,">",$OPT{-logfile};
+    printf STDLOG "# Date: %s\n",scalar localtime;
+  }#endif
+}
+
+my ($COLOR_RED
+   ,$COLOR_GRN
+   ,$COLOR_BLU
+   ,$COLOR_BLK
+   ,$COLOR_OFF
+   ,$COLOR_BOLD
+   ,$COLOR_UL
+ ) = 
+   ("\x1B[31;01m"
+   ,"\x1B[32;01m"
+   ,"\x1B[34;01m"
+   ,"\x1B[30;01m"
+   ,"\x1B[00m"
+   ,"\x1B[01m"
+   ,"\x1B[04m"
+ );
+ my ($HDR,$TAG,$CMD,$END) = ('','','','');
+ if (opt -color) {
+    ($HDR,$TAG,$CMD,$END) = ($COLOR_GRN,$COLOR_BLU,$COLOR_BLK,$COLOR_OFF);
+ }
+
+if (opt -banner and not opt -quiet) {
+  printf "%s\n",('-' x 78);
+  system('header',$ARGV[0]);
+  printf "%s\n",('-' x 78);
+}#endif
+my @ARGS = @ARGV;
+my $cmd = $ARGV[0];
+for my $arg (@ARGS[1..$#ARGV]) {
+  if ($arg =~ m{[\\\$\s "\{\}()\[\]]} or not($arg =~ m{^-} or $arg =~ m{^\d+$} or $arg =~ m{/} or -e $arg)) {
+    $arg = qq{'$arg'};
+  } elsif ($arg =~ m{'}) {
+    $arg = qq{\"$arg\"};
+  }#endif
+  $cmd .= " $arg";
+}#endfor
+
+# Display & Execute
+printf "%s%% %s%s%s\n",$TAG,$CMD,join(' ',@ARGS),$END if not opt -quiet;
+printf STDLOG "%s%% %s%s%s\n",$TAG,$CMD,join(' ',@ARGS),$END if opt -logfile;
+sleep $OPT{-delay} if opt -delay;
+if (opt -logfile) {
+  my $result = qx($cmd);
+  print $result;
+  print STDLOG $result;
+  exit $?;
+} else {
+  exit system(@ARGV);
+}#endif
+
+__END__
+
+#!/bin/bash
+if [[ "$DO_BANNER" = 1 ]]; then
+  echo ""
+  echo "----------------------------------------------------------------------"
+  banner "$1"
+  echo "----------------------------------------------------------------------"
+fi
+echo "% $@"
+"$@"
