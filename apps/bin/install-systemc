@@ -2,8 +2,9 @@
 #
 # Steps to install SystemC
 
+# Ensure that error messages are clearly seen
 function Die() {
-  perl -le 'print chr(33)x80'
+  perl -le 'print qq{\n},chr(33)x80'
   echo "Fatal: $*" 1>&2
   exit 1
 }
@@ -26,12 +27,12 @@ fi
 mkdir -p $SRC || Die "Failed to find/create $SRC directory"
 cd $SRC
 
-# Clean
-rm -fr systemc
-
-# Download
-git clone https://github.com/accellera-official/systemc.git
-cd systemc
+if [[ -d systemc/.git ]]; then
+  cd systemc && git pull
+else
+  # Download
+  git clone https://github.com/accellera-official/systemc.git && cd systemc
+fi
 
 mkdir build
 cd build
@@ -45,5 +46,3 @@ cmake ..
 make
 make check
 make install
-
-# Cleanup

@@ -1,3 +1,9 @@
 #!/bin/bash
+USER=sc_user
+HOME=/home/$USER
 
-DO docker run --rm -ti -v $(pwd):/home/work systemcc "$@"
+if [[ $# == 0 ]]; then
+  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -rcfile $HOME/setup.profile
+else
+  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -rcfile $HOME/setup.profile "$@"
+fi
