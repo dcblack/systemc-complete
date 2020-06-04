@@ -8,7 +8,8 @@ Files
 
 ```
 .
-|-- README.md
+|-- DO -- echo argments and execute
+|-- README.md -- this file (markdown documentation)
 |-- build -- runs cmake inside a build/ subdirectory to keep generated distractions to a minimum.
 |-- filter-mlog -- Cleans up paths that reference $PROJ_HOME.
 |-- filter-sclog -- Removes excess blank lines around REPORT_INFO and fixes paths per filter-mlog.
