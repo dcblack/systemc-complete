@@ -11,9 +11,10 @@ Files
 |-- DO -- echo argments and execute
 |-- README.md -- this file (markdown documentation)
 |-- build -- runs cmake inside a build/ subdirectory to keep generated distractions to a minimum.
-|-- filter-mlog -- Cleans up paths that reference $PROJ_HOME.
+|-- filter-mlog -- Cleans up paths that reference $PROJ_ROOT.
 |-- filter-sclog -- Removes excess blank lines around REPORT_INFO and fixes paths per filter-mlog.
 |-- header -- big block letters
+|-- qsc -- quick dirty systemc compile (assumes all visible .cpp files are the entire source)
 `-- ruler -- horizontal line
 ```
 
