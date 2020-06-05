@@ -1,0 +1,11 @@
+#!/bin/bash
+
+export LOGFILE='compile.log'
+rm -f run.x *.o
+for FILE in *.cpp; do
+  DO g++ -std=c++17 --pedantic -Wall -I . -I $SYSTEMC_HOME/include -c $FILE;
+done
+export LOGFILE='link.log'
+DO g++ -L$SYSTEMC_HOME/lib -lsystemc -lm -o run.x *.o
+export LOGFILE='run.log'
+test -x run.x && env LD_LIBRARY_PATH=$SYSTEMC_HOME/lib ./run.x "$@"
