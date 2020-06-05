@@ -3,7 +3,7 @@ USER=sc_user
 HOME=/home/$USER
 
 if [[ $# == 0 ]]; then
-  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -rcfile $HOME/setup.profile
-else
-  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -rcfile $HOME/setup.profile "$@"
+  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -l -i
+else                                                                           
+  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -l -i -c "$@"
 fi
