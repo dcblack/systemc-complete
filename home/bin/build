@@ -55,19 +55,17 @@ In the process of doing its job, a `build/` directory is created to keep the gen
 
 ## REQUIREMENTS
 
-The following executables are used by this script.
-
-  - bash
-  - perl
-  - cmake
-  - gdb
-  - ninja or make
-  - cppcheck
-  - filter-mlog
-  - filter-sclog
-  - realpath
-  - header
-  - ruler
++ bash
++ perl
++ cmake
++ gdb
++ ninja or make
++ cppcheck
++ filter-mlog
++ filter-sclog
++ realpath
++ header
++ ruler
 
 ## ABOUT
 
@@ -156,6 +154,9 @@ RUN_LOGNAME='run.log'
 CMAKELIST="$(realpath $(firstreal $(add_suffix /CMakeLists.txt . .. ../.. ../../..)))"
 ROOT_DIR=$(dirname "$CMAKELIST")
 BUILD_DIR="$(realpath $(firstreal $(add_suffix /$BUILD_DIRNAME . .. ../.. ../../..) .))"
+if [[ "$SYSTEMC_HOME" != "" ]]; then
+  export SYSTEMC="$SYSTEMC_HOME"
+fi
 
 #-------------------------------------------------------------------------------
 # Check for proper environment variables
@@ -212,6 +213,7 @@ fi
 #-------------------------------------------------------------------------------
 while [[ "$1" =~ -.* ]]; do
   if [[ "$1" == "-v" ]]; then
+    MAKE_OPTS="${MAKE_OPTS} VERBOSE=1"
     RUN_OPTS="${RUN_OPTS} -v"
     export VERBOSE=1
     shift
