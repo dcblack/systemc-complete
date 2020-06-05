@@ -40,10 +40,11 @@ The following environment variables can be set in place of command-line options 
   + QUIET overrides VERBOSE
   + VERBOSE
 
-EXAMPLE
--------
+EXAMPLES
+--------
 
-  DO -color -banner 'HI' echo 'Hello'
+  DO pwd
+  DO -logfile=hi.log -color -banner 'HI' echo 'Hello'
 
 };
 
