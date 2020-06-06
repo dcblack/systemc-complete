@@ -7,6 +7,7 @@ FROM ubuntu:latest
 LABEL description="Tools to compile SystemC with Clang under Ubuntu" \
       maintainer="David Black <david.black@doulos.com>" alternate="dcblack@mac.com"
 
+# Eliminate interactive queries during build
 ENV DEBIAN_FRONTEND=noninteractive\
     TZ=US/Central
 
@@ -16,6 +17,7 @@ RUN perl -pi -e 's{^# +(deb http://archive.canonical.com/ubuntu bionic partner)}
 RUN apt-get -y update && apt-get -y install \
     apt apt-utils
 
+# Compiler tools
 RUN apt-get -y update && apt-get -y install \
     astyle \
     autoconf \
@@ -29,6 +31,7 @@ RUN apt-get -y update && apt-get -y install \
     g++ \
     gdb 
 
+# Libraries and automation
 RUN apt-get -y update && apt-get -y install \
     git \
     graphviz \
@@ -39,6 +42,7 @@ RUN apt-get -y update && apt-get -y install \
     cmake \
     python3-pip 
 
+# Useful in an interactive context
 RUN apt-get -y update && apt-get -y install \
     rsync \
     silversearcher-ag \
@@ -54,8 +58,11 @@ ENV APPS=/apps \
     NONE="[00m" 
 # RED,GRN,YLW,BLU,MAG,CYN,WHT,BLK
 
+COPY apps/bin $APPS/bin/
+COPY apps/setup.profile $APPS/
+COPY apps/src $APPS/src/
+COPY apps/systemc $APPS/systemc/
 WORKDIR $APPS/src
-COPY apps $APPS
 # RUN pip3 install -U sphinx \
 #  && $APPS/bin/install-cmake
 
@@ -68,6 +75,12 @@ ENV USER=sc_user \
     EMAIL=sc_user@doulos.com \
     HOME=/home/sc_user \
     SYSTEMC_HOME=/apps/systemc
+
+# Stuff that changes more frequently
+COPY apps/.vim $APPS/.vim/
+COPY apps/cmake $APPS/cmake/
+WORKDIR $APPS
+RUN git clone git@github.com:dcblack/sc-templates.git
 
 RUN adduser --home $HOME --shell /bin/bash --ingroup users --disabled-password \
       --gecos "SystemC developer" $USER \
