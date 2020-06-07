@@ -1,9 +1,18 @@
 #!/bin/bash
 USER=sc_user
 HOME=/home/$USER
+IMAGE=systemcc
+
+# Allow overriding images (used for debugging builds)
+if [[ "$1" == -i ]]; then
+  IMAGE="$2"
+  shift; shift;
+fi
 
 if [[ $# == 0 ]]; then
-  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -l -i
+  set -x
+  docker run --rm -ti -v $(pwd):$HOME/work $IMAGE bash -l -i ;set +x
 else                                                                           
-  DO docker run --rm -ti -v $(pwd):$HOME/work systemcc bash -l -i -c "$@"
+  set -x
+  docker run --rm -ti -v $(pwd):$HOME/work $IMAGE bash -l -i -c "$*" ;set +x
 fi
