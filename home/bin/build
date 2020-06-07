@@ -410,11 +410,11 @@ if [[ $RUN_FLAG == 1 ]]; then
   cd "$ROOT_DIR";
   echo "% export DEBUG=1" | tee -a "$BUILD_DIR/$RUN_LOGNAME"
   echo "% export LD_LIBRARY_PATH=$SYSTEMC/lib" | tee -a "$BUILD_DIR/$RUN_LOGNAME"
-  echo "% $GDBP '$BUILD_DIR/$TARGET' -- $RUN_OPTS $ARGS 2>&1" | tee -a "$BUILD_DIR/$RUN_LOGNAME"
+  echo "% $GDBP '$BUILD_DIR/$TARGET' - $RUN_OPTS $ARGS 2>&1" | tee -a "$BUILD_DIR/$RUN_LOGNAME"
   env DEBUG=1\
     LD_LIBRARY_PATH=$SYSTEMC/lib \
     DYLD_LIBRARY_PATH=$SYSTEMC/lib \
-  $GDBP "$BUILD_DIR/$TARGET" -- $RUN_OPTS $ARGS 2>&1 \
+  $GDBP "$BUILD_DIR/$TARGET" - $RUN_OPTS $ARGS 2>&1 \
   | tee -a "$BUILD_DIR/$RUN_LOGNAME";
 
   if [[ "$ROOT_DIR" != "$BUILD_DIR" ]]; then
