@@ -8,9 +8,13 @@ IMAGE := systemcc
 
 dflt: targets # Default target
 
+preparation: # Setups that couldn't be done inside Dockerfile (yet)
+	cd apps && ( ( cd sc-templates && git pull )\
+        || git clone git@github.com:dcblack/sc-templates.git )
+
 image: ${IMAGE} # Builds the docker image
 
-${IMAGE}:
+${IMAGE}: preparation
 	docker build -t ${IMAGE} .
 
 clean: # Removes orphaned images
