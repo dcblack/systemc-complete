@@ -87,6 +87,7 @@ ENV USER=sc_user \
 COPY home $HOME/
 COPY apps/.vim $APPS/.vim/
 COPY apps/cmake $APPS/cmake/
+COPY apps/make  $APPS/make/
 COPY apps/sc-templates $APPS/sc-templates/
 # WORKDIR $APPS
 # RUN git clone git@github.com:dcblack/sc-templates.git
