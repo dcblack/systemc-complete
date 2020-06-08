@@ -34,6 +34,8 @@ RUN apt-get -y update && apt-get -y install \
 # Libraries and automation
 RUN apt-get -y update && apt-get -y install \
     git \
+    libsecret-1-0 \
+    libsecret-1-dev \
     graphviz \
     libboost-all-dev \
     libyaml-cpp-dev \
@@ -62,12 +64,17 @@ COPY apps/bin $APPS/bin/
 COPY apps/setup.profile $APPS/
 COPY apps/src $APPS/src/
 COPY apps/systemc $APPS/systemc/
-WORKDIR $APPS/src
-# RUN pip3 install -U sphinx \
-#  && $APPS/bin/install-cmake
+
+# Install cmake if not available from repo
+# WORKDIR $APPS/src
+# RUN pip3 install -U sphinx && $APPS/bin/install-cmake
 
 # Install SystemC, CCI and other components
+WORKDIR $APPS/src
 RUN $APPS/bin/install-systemc
+
+RUN apt-get -y update && apt-get -y install \
+    sudo && perl -pi -e 'if( m/^root/ ) { print; s/root/sc_user/; }' /etc/sudoers
 
 ENV USER=sc_user \
     TZ=US/Central \
@@ -77,17 +84,18 @@ ENV USER=sc_user \
     SYSTEMC_HOME=/apps/systemc
 
 # Stuff that changes more frequently
+COPY home $HOME/
 COPY apps/.vim $APPS/.vim/
 COPY apps/cmake $APPS/cmake/
-WORKDIR $APPS
-RUN git clone git@github.com:dcblack/sc-templates.git
+COPY apps/sc-templates $APPS/sc-templates/
+# WORKDIR $APPS
+# RUN git clone git@github.com:dcblack/sc-templates.git
 
 RUN adduser --home $HOME --shell /bin/bash --ingroup users --disabled-password \
       --gecos "SystemC developer" $USER \
  && printf "%s\n%s\n" $EMAIL $EMAIL | passwd $USER \
- && chown -R $USER $APPS; chgrp -R users $APPS; chmod u=rwx,g+sx $APPS \
- && chmod g+s $HOME && mkdir $HOME/work
+ && chown -R $USER $APPS $HOME; chgrp -R users $APPS $HOME; chmod u=rwx,g+sx $APPS $HOME/bin\
+ && chmod g+s $HOME $HOME/bin && mkdir -p $HOME/work
 
-COPY home $HOME
 WORKDIR $HOME/work
 USER $USER:users

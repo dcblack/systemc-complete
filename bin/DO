@@ -149,7 +149,7 @@ for my $arg (@ARGS[1..$#ARGV]) {
 printf "%s%% %s%s%s\n",$TAG,$CMD,join(' ',@ARGS),$END if opt -verbose;
 printf STDLOG "%s%% %s%s%s\n",$TAG,$CMD,join(' ',@ARGS),$END if opt -logfile;
 sleep $OPT{-delay} if opt -delay;
-my $result = qx($cmd 2>&1);
+my $result = system($cmd 2>&1);
 my $status = $?;
 print $result;
 print STDLOG $result if opt -logfile;
