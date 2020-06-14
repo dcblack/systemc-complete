@@ -1,0 +1,19 @@
+#!/usr/bin/bash
+
+firstreal () {
+  perl -le '@_=split($;,join($;,@ARGV));for(@_){next unless -e $_;print $_;exit 0;}' "$@"
+}
+
+exe="$(firstreal ./*.x ./*.exe build/*.x build/*.exe)"
+echo "exe=$exe"
+if [[ $# != 0 ]]; then
+  $@
+elif [[ -r "$exe" ]]; then
+  "$exe"
+elif [[ -d build ]]; then
+  build -run
+else
+  echo "No executables found"
+fi
+
+# The end

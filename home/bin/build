@@ -153,7 +153,7 @@ BUILD_LOGNAME='build.log'
 RUN_LOGNAME='run.log'
 CMAKELIST="$(realpath $(firstreal $(add_suffix /CMakeLists.txt . .. ../.. ../../..)))"
 ROOT_DIR=$(dirname "$CMAKELIST")
-BUILD_DIR="$(realpath $(firstreal $(add_suffix /$BUILD_DIRNAME . .. ../.. ../../..) .))"
+BUILD_DIR="$(realpath $(firstreal $(add_suffix /$BUILD_DIRNAME . .. ../.. ../../..) build))"
 if [[ "$SYSTEMC_HOME" != "" ]]; then
   export SYSTEMC="$SYSTEMC_HOME"
 fi
@@ -346,6 +346,10 @@ test "$MAKER" == 'ninja' && GENERATOR='Ninja'
 if [[ error_count -gt 0 ]]; then
   echo "Please fix errors and retry."
   exit 1
+fi
+
+if [[ "$BUILD_DIR" == "" ]]; then
+  BUILD_DIR="$ROOT_DIR/$BUILD_DIRNAME"
 fi
 
 if [[ $NAH == 1 ]]; then

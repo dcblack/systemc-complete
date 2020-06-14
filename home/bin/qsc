@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Quick SystemC compile (unconditional)
+#
+# Dependencies: DO
 
 export LOGFILE='compile.log'
 rm -f run.x *.o

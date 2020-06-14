@@ -29,7 +29,7 @@ RUN apt-get -y update && apt-get -y install \
     doxygen \
     flex \
     g++ \
-    gdb 
+    gdb
 
 # Libraries and automation
 RUN apt-get -y update && apt-get -y install \
@@ -39,17 +39,25 @@ RUN apt-get -y update && apt-get -y install \
     graphviz \
     libboost-all-dev \
     libyaml-cpp-dev \
+    rapidjson-dev \
     make \
     ninja-build \
     cmake \
+    graphviz \ 
+    doxygen \ 
+    perl-doc \ 
     python3-pip 
 
 # Useful in an interactive context
 RUN apt-get -y update && apt-get -y install \
     rsync \
     silversearcher-ag \
+    sudo \
+    time \
     vim \
-    wget 
+    wget \
+    && perl -pi -e 'if( m/^root/ ) { print; s/root/sc_user/; }' /etc/sudoers
+
 
 ENV APPS=/apps \
     CMAKE_VERSION=3.14 CMAKE_BUILD=4\
@@ -60,7 +68,6 @@ ENV APPS=/apps \
     NONE="[00m" 
 # RED,GRN,YLW,BLU,MAG,CYN,WHT,BLK
 
-COPY apps/bin $APPS/bin/
 COPY apps/setup.profile $APPS/
 COPY apps/src $APPS/src/
 COPY apps/systemc $APPS/systemc/
@@ -70,33 +77,50 @@ COPY apps/systemc $APPS/systemc/
 # RUN pip3 install -U sphinx && $APPS/bin/install-cmake
 
 # Install SystemC, CCI and other components
+#COPY apps/src/systemc  $APPS/src/systemc
 WORKDIR $APPS/src
+COPY apps/bin/install-systemc $APPS/bin/install-systemc
+ENV SYSTEMC_HOME=/apps/systemc
 RUN $APPS/bin/install-systemc
 
-RUN apt-get -y update && apt-get -y install \
-    sudo && perl -pi -e 'if( m/^root/ ) { print; s/root/sc_user/; }' /etc/sudoers
+# Setup CCI
+ENV CCI_HOME=/apps/cci
+WORKDIR $APPS
+COPY apps/bin/install-cci $APPS/bin/install-cci
+COPY apps/cci $APPS/cci/
+RUN ln -s $APPS/src/systemc/src $SYSTEMC_HOME/src \
+    && $APPS/bin/install-cci
+
+# Stuff that changes more frequently
+COPY apps/bin $APPS/bin/
+COPY apps/.vim    $APPS/.vim/
+COPY apps/include $APPS/include/
+COPY apps/cmake   $APPS/cmake/
+COPY apps/make    $APPS/make/
+COPY apps/sc-templates $APPS/sc-templates/
+# WORKDIR $APPS
+# RUN git clone git@github.com:dcblack/sc-templates.git
+
+# Minor patches for aid some setup assumptions
+RUN echo "Set disable_coredump false" >> /etc/sudo.conf \
+ && ln -s $SYSTEMC_HOME/lib $SYSTEMC_HOME/lib-linux64 \
+ && ln -s $CCI_HOME/src     $CCI_HOME/include
 
 ENV USER=sc_user \
     TZ=US/Central \
     TERM=xterm-color \
     EMAIL=sc_user@doulos.com \
-    HOME=/home/sc_user \
-    SYSTEMC_HOME=/apps/systemc
-
-# Stuff that changes more frequently
-COPY home $HOME/
-COPY apps/.vim $APPS/.vim/
-COPY apps/cmake $APPS/cmake/
-COPY apps/make  $APPS/make/
-COPY apps/sc-templates $APPS/sc-templates/
-# WORKDIR $APPS
-# RUN git clone git@github.com:dcblack/sc-templates.git
+    HOME=/home/sc_user
 
 RUN adduser --home $HOME --shell /bin/bash --ingroup users --disabled-password \
       --gecos "SystemC developer" $USER \
- && printf "%s\n%s\n" $EMAIL $EMAIL | passwd $USER \
- && chown -R $USER $APPS $HOME; chgrp -R users $APPS $HOME; chmod u=rwx,g+sx $APPS $HOME/bin\
- && chmod g+s $HOME $HOME/bin && mkdir -p $HOME/work
+ && printf "%s\n%s\n" $EMAIL $EMAIL | passwd $USER
+COPY home $HOME/
+RUN chown -R $USER $APPS $HOME \
+ && chgrp -R users $APPS $HOME \
+ && chmod u=rwx,g+sx $APPS $HOME/bin\
+ && chmod g+s $HOME $HOME/bin \
+ && mkdir -p $HOME/work
 
 WORKDIR $HOME/work
 USER $USER:users

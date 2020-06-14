@@ -2,6 +2,15 @@
 eval 'exec perl -S $0 ${1+"$@"}'
   if 0;#running_under_some_shell;
 
+require v5.6;
+use strict;
+use English;
+use FindBin qw($RealBin $RealScript);
+use FileHandle;
+use Cwd;
+STDOUT->autoflush(1);
+STDERR->autoflush(1);
+
 my $HELPTEXT = q{
 NAME
 ----
@@ -57,6 +66,7 @@ $OPT{-verbose}  = 1;# built-in default is to be verbose
 $OPT{-verbose}  = 1 if exists $ENV{VERBOSE}   and $ENV{VERBOSE}>0;
 $OPT{-verbose}  = 0 if exists $ENV{QUIET}     and $ENV{QUIET}>0;
 $OPT{-banner} = $ENV{DO_BANNER} if exists $ENV{DO_BANNER} and $ENV{DO_BANNER}>0;
+unshift @ARGV,split($ENV{DO_OPTIONS}) if exists $ENV{DO_OPTIONS};
 while (@ARGV and $ARGV[0] =~ m{^-}) {
   my $arg = shift @ARGV;
   if ($arg =~ m{^-{1,2}(?:h|help)$}) {
@@ -96,6 +106,7 @@ while (@ARGV and $ARGV[0] =~ m{^-}) {
   }#endif
 }#endwhile
 
+# Subroutine to test option and return true/false
 sub opt($) { return (exists $OPT{$_[0]} and ($OPT{$_[0]} ne 0))?1:0; }
 
 if (opt -logfile) {
@@ -162,6 +173,8 @@ exit $status;
 __END__
 
 #!/bin/bash
+#
+# Original idea...
 if [[ "$DO_BANNER" != "" ]]; then
   echo ""
   echo "----------------------------------------------------------------------"

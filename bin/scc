@@ -1,18 +1,191 @@
-#!/bin/bash
-USER=sc_user
-HOME=/home/$USER
-IMAGE=systemcc
+#!bash
 
-# Allow overriding images (used for debugging builds)
-if [[ "$1" == -i ]]; then
-  IMAGE="$2"
-  shift; shift;
+realpath () {
+	perl '-MCwd(abs_path)' -le "print abs_path(qq($*))"
+}
+
+SCC_RC="$HOME/.sccrc"
+SCC_USER=sc_user
+SCC_IMAGE=systemcc
+SCC_COMMAND=""
+SCC_LOADDIR=$(pwd)
+SCC_HOMEDIR=/home/$SCC_USER
+SCC_ENVFILE="$(dirname $(dirname $(realpath $0)))/etc/env.list"
+export SCC_WORKDIR=.
+
+# Allow user default overrides
+if [[ -r "$SCC_RC" ]]; then
+  source "$SCC_RC"
+fi
+if [[ -r "./$(basename $SCC_RC)" ]]; then
+  source "./$(basename $SCC_RC)"
 fi
 
-if [[ $# == 0 ]]; then
-  set -x
-  docker run --rm -ti -v $(pwd):$HOME/work $IMAGE bash -l -i ;set +x
+HELP=0
+VERBOSE=0
+while [[ "$1" =~ ^-.* ]]; do
+  # Allow overriding images (used for debugging builds)
+  if [[ "$1" == "-h" ]]; then
+    HELP=1
+    break
+  elif [[ "$1" == "-v" ]]; then
+    VERBOSE=1
+  elif [[ "$1" == "-e" ]]; then
+    if [[ ! -r "$2" ]]; then
+      echo "Fatal: '$2' not readable" 1>&2
+      exit 1
+    fi
+    SCC_ENVFILE="$2"
+    shift; shift;
+  elif [[ "$1" == "-d" ]]; then
+    LOADDIR=$(realpath "$2")
+    if [[ "$SCC_LOADDIR" == "" || ! -d "$SCC_LOADDIR" ]]; then
+      echo "Fatal: '$2' is not a valid directory" 1>&2
+      exit 1
+    fi
+    if [[ "$2" =~ ^\.\.(/\.\.)*$ ]]; then
+      T="."
+      P="$(pwd)"
+      H="$2"
+      while [[ "$H" != "." ]]; do
+        T=$(basename "$P")/"$T"
+        P=$(dirname "$P")
+        H=$(dirname "$H")
+      done
+      WORKDIR="$(dirname $T)"
+    fi
+    shift; shift;
+  elif [[ "$1" == "-w" ]]; then
+    WORKDIR="$2"
+    shift; shift;
+  elif [[ "$1" == "-i" ]]; then
+    SCC_IMAGE="$2"
+    shift; shift;
+  else
+    echo 1>&2 "Warning: Skipping unknown option: $1"
+    shift
+  fi
+done
+
+if [[ ! -r "$SCC_ENVFILE" ]]; then
+  echo "Fatal: SCC_ENVFILE='$SCC_ENVFILE' not readable" 1>&2
+  exit 1
+fi
+
+if [[ $HELP == 0 ]]; then
+
+if [[ $VERBOSE == 1 ]]; then
+  printf "%s\n" "SCC_LOADDIR=$SCC_LOADDIR\nWORKDIR=$SCC_WORKDIR"
+fi
+
+if [[ $# == 0 && $SCC_COMMAND == "" ]]; then
+  ( set -x; docker run --rm -ti -v "$SCC_LOADDIR:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -i )
 else                                                                           
-  set -x
-  docker run --rm -ti -v $(pwd):$HOME/work $IMAGE bash -l -i -c "$*" ;set +x
+  if [[ $# != 0 ]]; then
+    SCC_COMMAND="$*";
+  fi
+  ( set -x; docker run --rm -ti -v "$SCC_LOADDIR:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -i -c "$SCC_COMMAND" )
 fi
+
+exit 0
+
+fi
+
+cat <<'EOT'
+NAME
+----
+
+scc - script to invoke SystemC-Complete
+
+SYNOPSIS
+--------
+
+`scc [OPTIONS] [COMMAND [ARGS]...]`
+
+OPTIONS
+-------
+
+| OPTION       | DESCRIPTION                                               |
+| ------------ | --------------------------------------------------------- |
+| `-d LOADDIR` | Mount volume to specified directory (default .) See note. |
+| `-e ENVFILE` | Specify a file containing environment variables to pass.  |
+| `-h`         | Display help                                              |
+| `-i IMAGE`   | Load specified docker image (default systemcc)            |
+| `-v`         | Verbose                                                   |
+| `-w WORKDIR` | Specify relative directory to start from (default .)      |
+
+Note: If `-d LOADDIR` specifies and upward relative path, then the WORKDIR is
+adjusted to remain at the current directory.
+
+EXAMPLES
+
+```bash
+scc
+scc make
+scc -d ../.. make
+```
+
+ENVIRONMENT
+-----------
+
+You can setup defaults by using a special file, `.sccrc`. There are two
+locations for this file, your home directory and the directory where the tool is
+launched. They are used in the following order if they exist:
+
+1. $HOME/.sccrc
+2. ./.sccrc
+
+The only things that should be present are the following:
+
+1. Variable assignments (just the ones you need)
+2. Blank lines
+3. Comment lines beginning with '#'
+
+| VARIABLE=DEFAULT         | MEANING                                                   |
+| ------------------------ | --------------------------------------------------------- |
+| SCC_LOADDIR=.            | Directory to load into the container (often .. or ../..)  |
+| SCC_ENVFILE=etc/env.list | List of environment variables to override                 |
+| SCC_COMMAND=             | Provides a single default command to execute when no arguments are provided. If empty, you are dropped into the bash shell. |
+
+HINT: A good way to use this feature is to place it into the project directory
+where you edit files with content similar to the following. Assume you use the
+`make` command and the `Makefile` references `../Makefile.defs`. Also assume you
+prefer to use `clang++` rather than `g++`, and your `make` rules reference CXX.
+Also assume a target: `run`.
+
+```sh
+# FILE: ./.sccrc
+
+SCC_LOADDIR=..
+SCC_ENVFILE=./env.list
+SCC_COMMAND=make run
+```
+```sh
+FILE: ./env.list
+export CXX=clang++
+```
+
+To edit, compile and run the project, you can simply type:
+
+```sh
+vim myfile.cpp
+scc
+```
+COPYRIGHT & LICENSE
+-------------------
+
+Copyright 2010 by David C Black.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
++ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+EOT

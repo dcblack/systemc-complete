@@ -260,23 +260,14 @@ Given Makefile containing:
  |#--------------------------------------------------------------------
  |# The following locates the closest definition file containing the
  |# make rules that are used to compile designs anywhere here or above
- |# to three levels or in the ${HLDW}/etc directory..
- |ifndef EDA
- |  $(info INFO: Defining EDA)
- |  export EDA:=$(firstword $(wildcard ./eda ../eda ${HOME}/eda /eda))
+ |# to three levels or in the ${APPS} directory..
+ |ifndef APPS
+ |  $(info INFO: Defining APPS)
+ |  export APPS:=/apps/make
  |endif
- |ifndef HLDW
- | ifdef HLDW
- |  $(info INFO: Defining HLDW)
- |  HLDW:=${HLDW}
- | else
- |  HLDW:=$(firstword $(wildcard $EDA/hldw/default $EDA/util/default))
- | endif
- | export HLDW
- |endif
- |# Allow for overrides locally, but normally use ${HLDW}/etc
+ |# Allow for overrides locally, but normally use ${APPS}
  |RULEBASE:=Makefile.rules
- |RULEDIRS:= . .. ../.. ../../.. ../../../.. ${HLDW}/etc
+ |RULEDIRS:= . .. ../.. ../../.. ../../../.. ${APPS}
  |RULES := $(addsuffix /etc/${RULEBASE},${RULEDIRS})
  |RULES += $(addsuffix /${RULEBASE},${RULEDIRS})
  |RULES := $(firstword $(wildcard ${RULES}))
@@ -288,18 +279,9 @@ B<gmake> -f Makefile.rules
 
 B<gmake> SRCS="top.cpp main.cpp" UNIT=mycode
 
-=head1 NOTES
-
-HLDW is derived from "High-Level Design Wizard", an informal title I took on
-during my tenure at Apple Computer back in the late 90s. I have developed a
-number of minor scripts over several decades (including this makefile) and store
-them under a directory referenced by the HLDW environment variable. Many scripts
-borrow from others I have been exposed to over the years. It is of no
-consequence if you do not have this variable and/or directory.
-
 =head1 AUTHOR
 
-David C Black <dcblack@hldwizard.com>
+David C Black <david.black@doulos.com>
 
 =cut
 
@@ -320,13 +302,9 @@ endef
 
 .PHONY: $(PHONIES)
 
-ifndef EDA
- $(info INFO: Defining EDA)
- export EDA:=$(firstword $(wildcard ./eda ../eda ${HOME}/eda /eda))
-endif
-ifndef HLDW
- HLDW:=$(firstword $(wildcard $EDA/hldw/default $EDA/util/default))
- export HLDW
+ifndef APPS
+ $(info INFO: Defining APPS)
+ export APPS:=/apps/make
 endif
 
 # Locate macros - should be in same directory as rules
@@ -473,14 +451,6 @@ endif
 ifndef LIBDIR
   LIBDIR:=../lib-${TARGET_ARCH}
 endif
-ifneq "$(wildcard ${HLDW}/hldw)" ""
-  EA:=hldw
-else
-  EA:=ea
-endif
-ifndef LIBFILE
-  LIBFILE:=lib${EA}
-endif
 
 USING_SYSTEMC?=
 USING_STD?=0
@@ -490,7 +460,6 @@ USING_DYNAMIC?=
 USING_BOOST?=
 USING_BLITZ?=
 USING_WXWIDGETS?=
-#USING_HLDW:=
 #USING_CLEARCASE:=
 USING_CLANG?=
 USING_DOULOS?=
@@ -587,12 +556,6 @@ ifneq "$(wildcard ${SRCS} ${SHARED_SRCS})" ""
     $(info INFO: Using wxWidgets library)
    endif
  endif
- #------------------------------------------------------------------------------
-#ifneq "$(strip $(call File_contains,${EA}_,${SRCS} ${SHARED_SRCS}))" ""
-# USING_HLDW:=1
-# $(info INFO: Using HLDW library)
-#endif
-endif
 ################################################################################
 ifndef LIBPATH
  ifeq (${USING_SYSTEMC},1)
@@ -724,7 +687,6 @@ CFLAGS += ${OPTLEVEL}
 # Allow user overrides to go first
 LDFLAGS := ${OTHER_LDFLAGS} ${MY_LDFLAGS}
 INCDIRS := . ../include ../src ${SHARED_INCS} ${MY_INCDIRS} ${OTHER_INCDIRS}
-C_DEFS  +=      ${HLDW_DEFS}
 LIBDIRS := .  ${OTHER_LIBDIRS} ${MY_LIBDIRS}
 LIBS    :=      ${OTHER_LIBS} ${MY_LIBS}
 tmp:=$(wildcard ./include)
@@ -751,25 +713,6 @@ endif
 tmp:=$(firstword $(wildcard ../lib-${TARGET_ARCH}))
 ifneq "" "$(wildcard ${tmp})"
   LIBDIRS += ${tmp}
-endif
-ifdef HLDW
-  ifeq (${USING_SYSTEMC},1)
-   ifeq (${USING_HLDW},1)
-     ifndef NOHLDW
-      INCDIRS += ${HLDW}/include
-      LIBDIRS += ${HLDW}/lib-${TARGET_ARCH}
-      ifdef NC_SYSTEMC
-	LIBS    += -l${EA}-${SYSTEMC_FULL}-cds
-      else
-       ifdef VSIMSACFG
-	LIBS    += -l${EA}-${SYSTEMC_FULL}-aldec
-       else
-	LIBS    += -l${EA}-${SYSTEMC_FULL}-osci
-       endif
-      endif
-     endif
-   endif
-  endif
 endif
 ifdef M
   CPUWIDTH:=$M
@@ -985,7 +928,6 @@ show:
 	@echo "  MAKEFILE_LIST='${MAKEFILE_LIST}'";
 	@${RULER};
 	@echo "Environment/discovered:";
-	@echo "  HLDW='${HLDW}'";
 	@echo "  SYSTEMC='${SYSTEMC}'";
 	@echo "  SYSTEMC_SCV='${SYSTEMC_SCV}'";
 	@echo "  SYSTEMC_TLM='${SYSTEMC_TLM}'";
@@ -1344,7 +1286,6 @@ tar:
 	@$(call Mkdir,${UNIT}/etc)
 	@$(call Mkln,${MAKEFILE_RULES},${UNIT}/etc/$(notdir ${MAKEFILE_RULES}))
 	@$(call Mkln,${MAKEFILE_MACROS},${UNIT}/etc/$(notdir ${MAKEFILE_MACROS}))
-	@$(call Mkln,${HLDW}/bin,)
 	@echo "git version " >GITHEAD && git rev-parse HEAD 2>/dev/null >>GITHEAD || rm -f GITHEAD
 	tar cvhzf ${TARBALL} $(addprefix ${UNIT}/,${TARLIST}) >MANIFEST.txt 2>&1
 	@rm ${UNIT}
@@ -1355,7 +1296,7 @@ INSTALL_DIR:=$(dir ${INSTALL})
 INSTALL_LIST:=$(notdir ${INSTALL})
 endif
 ifndef INSTALL_DIR
-INSTALL_DIR := ${HLDW}/bin
+INSTALL_DIR := ${HOME}/bin
 endif
 ifndef INSTALL_LIST
 INSTALL_LIST:=${EXE}
@@ -1369,12 +1310,6 @@ dist:
 # Install/update local copies of makefiles and other links
 	mkdir -p etc
 	rsync -auvLP ./links/ ./etc/
-ifdef HLDW
-# Install/update local copies of scripts
-	mkdir -p bin
-	HERE=`pwd`;cd ${HLDW}/bin && rsync -auvP ${MAKEFILE_SCRIPTS} $$HERE/bin/
-endif
-
 rmdist: distclean
 	-rm -fv ${RULES}
 

@@ -2,10 +2,22 @@
 #
 # Steps to install cmake of an appropriate version.
 
+#-------------------------------------------------------------------------------
+# Make things more visible in the output
+function Ruler() {
+  perl -le 'printf qq{\n%80.80s\n},"@ARGV"x80' "$*"
+}
+
+# Ensure that error messages are clearly seen
 function Die() {
-  perl -le 'print chr(33)x80'
+  Ruler '!'
   echo "Fatal: $*" 1>&2
   exit 1
+}
+
+function Info() {
+  Ruler '-'
+  echo "${CGRN}Info: $*${NONE}"
 }
 
 if [[ "$CMAKE_VERSION" == '' || "$CMAKE_BUILD" == '' ]]; then
@@ -13,7 +25,7 @@ if [[ "$CMAKE_VERSION" == '' || "$CMAKE_BUILD" == '' ]]; then
 fi
 FULL_VERS="$CMAKE_VERSION.$CMAKE_BUILD"
 
-# Setup source directory
+Info "Setup source directory"
 if [[ "$SRC" != '' && -d $SRC ]]; then
   echo "Using SRC=$SRC"
 fi
@@ -28,15 +40,17 @@ cd $SRC
 # Clean
 rm -fr cmake-$FULL_VERS{,.tar.gz}
 
-# Download and unpack
+Info "Download and unpack"
 CMAKE_URL="https://cmake.org/files/v$CMAKE_VERSION/cmake-$FULL_VERS.tar.gz"
 wget $CMAKE_URL || Die "Failed to download cmake $FULL_VERS"
 tar -xzvf cmake-$FULL_VERS.tar.gz || Die "Failed to extract cmake-$FULL_VERS.tar.gz"
 
-# Build & install
+Info "Build & install"
 cd cmake-$FULL_VERS/
 ./bootstrap --qt-gui --sphinx-man && make && make install
 
 cd -
-# Clean up
+Info "Clean up"
 rm -fr cmake-$FULL_VERS{,.tar.gz}
+
+Info "Finished installing cmake"

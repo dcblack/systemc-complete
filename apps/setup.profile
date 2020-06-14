@@ -3,9 +3,10 @@
 # Sets up the environment inside the SystemC docker container
 
 set -o vi
-alias m=less
-alias cls=clear
-export LESS=afrMRXj4x4
+alias  cls='clear'
+alias  ls='ls -ABCF --color'
+alias  m='less'
+export LESS='afrMRXj4x4'
 
 # Setup path
 PATH=/apps/bin:${PATH}
@@ -13,6 +14,10 @@ if [[ -d "$HOME/bin" ]]; then
   PATH="$HOME/bin":${PATH}
 fi
 export PROJ_ROOT="$HOME/work"
+export BOOST_HOME=/usr/include/boost
+export SYSTEMC_HOME=/apps/systemc
+export CCI_HOME=/apps/cci
+export LD_LIBRARY_PATH=$SYSTEMC_HOME/lib
 export TEMPLATEPATH=/home/sc_user/work/templates:/apps/sc-templates
 
 # Setup vimrc
@@ -31,4 +36,6 @@ if [[ "$hpath" != "$cpath" ]]; then
   fi
 fi
 
-echo "HOME='${hpath}'" "CWD='${cpath}'"
+if [[ -d "$WORKDIR" ]]; then
+  cd "$WORKDIR"; pwd
+fi

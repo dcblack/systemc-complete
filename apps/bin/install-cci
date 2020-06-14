@@ -1,0 +1,55 @@
+#!/bin/bash
+#
+# Steps to install CCI for SystemC
+
+# Make things more visible in the output
+function Ruler() {
+  perl -le 'printf qq{\n%80.80s\n},"@ARGV"x80' "$*"
+}
+
+# Ensure that error messages are clearly seen
+function Die() {
+  Ruler '!'
+  echo "Fatal: $*" 1>&2
+  exit 1
+}
+
+function Info() {
+  Ruler '-'
+  echo "${CGRN}Info: $*${NONE}"
+}
+
+export SYSTEMC_HOME="/apps/systemc"
+export CCI_HOME="/apps/cci"
+export CXX=g++
+export CC=gcc
+
+# Validate that SystemC exists
+if [[ ! -d "$SYSTEMC_HOME/include" ]]; then
+  Die "Missing SystemC installation or SYSTEMC_HOME moved"
+fi
+if [[ ! -d "$CCI_HOME/src" ]]; then
+  Die "Missing CCI source or CCI_HOME moved"
+fi
+
+# Populate source directory
+#if [[ -d cci/.git ]]; then
+#  cd cci && git pull
+#else
+  # Download
+  # TBD
+#fi
+
+if [[ $GENERATE_DOCS == 1 ]]; then
+  Info "Build documentation"
+  cd "$CCI_HOME/doc"
+  doxygen cci_doxygen_api_ref.conf
+  doxygen cci_doxygen_examples.conf
+  #doxygen cci_doxygen_gs_impl_ref.conf
+fi
+
+Info "Compile library"
+cd "$CCI_HOME/src"
+make V=1
+
+Info "Finished installation of CCI into $CCI_HOME"

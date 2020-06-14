@@ -2,19 +2,34 @@
 #
 # Steps to install SystemC
 
+#-------------------------------------------------------------------------------
+# Make things more visible in the output
+function Ruler() {
+  perl -le 'printf qq{\n%80.80s\n},"@ARGV"x80' "$*"
+}
+
 # Ensure that error messages are clearly seen
 function Die() {
-  perl -le 'print qq{\n},chr(33)x80'
+  Ruler '!'
   echo "Fatal: $*" 1>&2
   exit 1
 }
 
+function Info() {
+  Ruler '-'
+  echo "${CGRN}Info: $*${NONE}"
+}
+
+
+#-------------------------------------------------------------------------------
 # Environment variables
-export CMAKE_INSTALL_PREFIX=$APPS/systemc
+export SYSTEMC_HOME="/apps/systemc"
+export CMAKE_INSTALL_PREFIX="$SYSTEMC_HOME"
 export CMAKE_CXX_STANDARD=17
 export CXX=g++
 export CC=gcc
 
+#-------------------------------------------------------------------------------
 # Setup source directory
 if [[ "$SRC" != '' && -d $SRC ]]; then
   echo "Using SRC=$SRC"
@@ -27,6 +42,7 @@ fi
 mkdir -p $SRC || Die "Failed to find/create $SRC directory"
 cd $SRC
 
+Info "Obtaining SystemC source"
 if [[ -d systemc/.git ]]; then
   cd systemc && git pull
 else
@@ -34,10 +50,12 @@ else
   git clone https://github.com/accellera-official/systemc.git && cd systemc
 fi
 
+Info "Compiling SystemC"
 mkdir build
 cd build
 cmake ..
 
+# Establish preferences
 perl -pi -e '$v=q{CMAKE_INSTALL_PREFIX};if(m{^$v:}){s{=.*}{=$ENV{$v}}}' CMakeCache.txt
 perl -pi -e '$v=q{CMAKE_CXX_STANDARD};if(m{^$v:}){s{=.*}{=$ENV{$v}}}' CMakeCache.txt
 touch /apps/src/systemc/docs/tlm/ChangeLog
@@ -45,4 +63,7 @@ touch /apps/src/systemc/docs/tlm/ChangeLog
 cmake ..
 make
 make check
+Info "Installing SystemC to final location"
 make install
+
+Info "Finished installation of SystemC into $SYSTEMC_HOME"
