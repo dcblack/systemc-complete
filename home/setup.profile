@@ -2,7 +2,13 @@
 #
 # Sets up the environment inside the SystemC docker container
 
-set -o vi
+case "$-" in
+  *i*)  set -o vi
+        set ignoreeof
+        test -r "$BASH_ENV" && . "$BASH_ENV"
+        ;;
+esac
+
 alias  cls='clear'
 alias  ls='ls -ABCF --color'
 alias  m='less'
@@ -36,6 +42,9 @@ if [[ "$hpath" != "$cpath" ]]; then
   fi
 fi
 
-if [[ -d "$WORKDIR" ]]; then
-  cd "$WORKDIR"; pwd
+if [[ -d "$SCC_WORKDIR" ]]; then
+  cd "$SCC_WORKDIR"
+fi
+if [[ "$SCC_LOGIN" != "" ]]; then
+  $SCC_LOGIN
 fi

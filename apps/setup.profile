@@ -37,5 +37,5 @@ if [[ "$hpath" != "$cpath" ]]; then
 fi
 
 if [[ -d "$WORKDIR" ]]; then
-  cd "$WORKDIR"; pwd
+  cd "$WORKDIR"
 fi
