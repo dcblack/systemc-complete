@@ -4,7 +4,7 @@
 #   execute-only: bash 
 #
 FROM ubuntu:latest
-LABEL description="Tools to compile SystemC with Clang under Ubuntu" \
+LABEL description="SystemC-Complete - Tools to compile SystemC with GCC & Clang under Ubuntu" \
       maintainer="David Black <david.black@doulos.com>" alternate="dcblack@mac.com"
 
 # Eliminate interactive queries during build
@@ -34,8 +34,8 @@ RUN apt-get -y update && apt-get -y install \
 # Libraries and automation
 RUN apt-get -y update && apt-get -y install \
     git \
-    libsecret-1-0 \
     libsecret-1-dev \
+    libsecret-1-0 \
     graphviz \
     libboost-all-dev \
     libyaml-cpp-dev \
@@ -90,6 +90,9 @@ COPY apps/bin/install-cci $APPS/bin/install-cci
 COPY apps/cci $APPS/cci/
 RUN ln -s $APPS/src/systemc/src $SYSTEMC_HOME/src \
     && $APPS/bin/install-cci
+
+# RUN apt-get -y update && apt-get -y install \
+#     libc++
 
 # Stuff that changes more frequently
 COPY apps/bin $APPS/bin/
