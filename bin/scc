@@ -1,17 +1,26 @@
-#!bash
+#!/opt/local/bin/bash
 
-realpath () {
-	perl '-MCwd(abs_path)' -le "print abs_path(qq($*))"
+DOCKER="/usr/local/bin/docker"
+
+Realpath () {
+  perl '-MCwd(abs_path)' -le "print abs_path(qq($*))"
+}
+
+Debug () {
+  if [[ "$DEBUG" == 1 ]]; then
+    echo "DEBUG: $*"
+  fi
 }
 
 SCC_RC="$HOME/.sccrc"
 SCC_USER=sc_user
 SCC_IMAGE=systemcc
 SCC_COMMAND=""
-SCC_LOADDIR=$(pwd)
+SCC_MOUNTPT=$(pwd)
 SCC_HOMEDIR=/home/$SCC_USER
-SCC_ENVFILE="$(dirname $(dirname $(realpath $0)))/etc/env.list"
+SCC_ENVFILE="$(dirname $(dirname $(Realpath $0)))/etc/env.list"
 export SCC_WORKDIR=.
+export SCC_VERBOSE=0
 
 # Allow user default overrides
 if [[ -r "$SCC_RC" ]]; then
@@ -22,24 +31,38 @@ if [[ -r "./$(basename $SCC_RC)" ]]; then
 fi
 
 HELP=0
-VERBOSE=0
+SCC_VERBOSE=0
+if [[ -t 0 ]]; then
+  BACKGROUND=0
+else
+  BACKGROUND=1
+fi
+DEBUG=0
 while [[ "$1" =~ ^-.* ]]; do
   # Allow overriding images (used for debugging builds)
-  if [[ "$1" == "-h" ]]; then
+  if [[ "$1" =~ -{1,2}h(elp)? ]]; then
     HELP=1
     break
+  elif [[ "$1" == "-debug" ]]; then
+    DEBUG=1
+  elif [[ "$1" == "-q" ]]; then
+    SCC_VERBOSE=-1
   elif [[ "$1" == "-v" ]]; then
-    VERBOSE=1
+    SCC_VERBOSE=1
   elif [[ "$1" == "-e" ]]; then
     if [[ ! -r "$2" ]]; then
       echo "Fatal: '$2' not readable" 1>&2
       exit 1
     fi
     SCC_ENVFILE="$2"
-    shift; shift;
-  elif [[ "$1" == "-d" ]]; then
-    LOADDIR=$(realpath "$2")
-    if [[ "$SCC_LOADDIR" == "" || ! -d "$SCC_LOADDIR" ]]; then
+    shift;
+  elif [[ "$1" == "-bg" ]]; then
+    BACKGROUND=1
+  elif [[ "$1" == "-fg" ]]; then
+    BACKGROUND=0
+  elif [[ "$1" == "-md" ]]; then
+    SCC_MOUNTPT=$(Realpath "$2")
+    if [[ "$SCC_MOUNTPT" == "" || ! -d "$SCC_MOUNTPT" ]]; then
       echo "Fatal: '$2' is not a valid directory" 1>&2
       exit 1
     fi
@@ -52,19 +75,19 @@ while [[ "$1" =~ ^-.* ]]; do
         P=$(dirname "$P")
         H=$(dirname "$H")
       done
-      WORKDIR="$(dirname $T)"
+      SCC_WORKDIR="$(dirname $T)"
     fi
-    shift; shift;
-  elif [[ "$1" == "-w" ]]; then
-    WORKDIR="$2"
-    shift; shift;
-  elif [[ "$1" == "-i" ]]; then
+    shift;
+  elif [[ "$1" == "-wd" ]]; then
+    SCC_WORKDIR="$2"
+    shift;
+  elif [[ "$1" == "-image" ]]; then
     SCC_IMAGE="$2"
-    shift; shift;
+    shift;
   else
     echo 1>&2 "Warning: Skipping unknown option: $1"
-    shift
   fi
+  shift
 done
 
 if [[ ! -r "$SCC_ENVFILE" ]]; then
@@ -74,17 +97,28 @@ fi
 
 if [[ $HELP == 0 ]]; then
 
-if [[ $VERBOSE == 1 ]]; then
-  printf "%s\n" "SCC_LOADDIR=$SCC_LOADDIR\nWORKDIR=$SCC_WORKDIR"
+if [[ $SCC_VERBOSE == 1 ]]; then
+  printf "\nSCC_MOUNTPT=%s\nSCC_WORKDIR=%s\n\n" "$SCC_MOUNTPT" "$SCC_WORKDIR"
 fi
 
 if [[ $# == 0 && $SCC_COMMAND == "" ]]; then
-  ( set -x; docker run --rm -ti -v "$SCC_LOADDIR:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -i )
+  Debug "Interactive"
+  ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash )
 else                                                                           
   if [[ $# != 0 ]]; then
     SCC_COMMAND="$*";
   fi
-  ( set -x; docker run --rm -ti -v "$SCC_LOADDIR:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -i -c "$SCC_COMMAND" )
+  if [[ $BACKGROUND == 1 ]]; then
+    if [[ $DEBUG == 1 ]]; then
+      Debug "Background command: $SCC_COMMAND"
+    fi
+    ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -c "$SCC_COMMAND" )
+  else
+    if [[ $DEBUG == 1 ]]; then
+      Debug "Terminal command: $SCC_COMMAND"
+    fi
+    ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -c "$SCC_COMMAND" )
+  fi
 fi
 
 exit 0
@@ -105,16 +139,18 @@ SYNOPSIS
 OPTIONS
 -------
 
-| OPTION       | DESCRIPTION                                               |
-| ------------ | --------------------------------------------------------- |
-| `-d LOADDIR` | Mount volume to specified directory (default .) See note. |
-| `-e ENVFILE` | Specify a file containing environment variables to pass.  |
-| `-h`         | Display help                                              |
-| `-i IMAGE`   | Load specified docker image (default systemcc)            |
-| `-v`         | Verbose                                                   |
-| `-w WORKDIR` | Specify relative directory to start from (default .)      |
+| OPTION         | DESCRIPTION                                                           |
+| -------------  | --------------------------------------------------------------------- |
+| `-bg`          | Run without a terminal connection in background.                      |
+| `-e ENVFILE`   | Specify a file containing environment variables to pass.              |
+| `-bg`          | Run with a terminal connection in foreground.                         |
+| `-h`           | Display help (aka --help)                                             |
+| `-image IMAGE` | Load specified docker image (default systemcc)                        |
+| `-md MOUNTPT`  | Mount volume to specified mount point/directory (default .) See note. |
+| `-v`           | Verbose                                                               |
+| `-wd WORKDIR`  | Specify relative working directory to start from (default .)          |
 
-Note: If `-d LOADDIR` specifies and upward relative path, then the WORKDIR is
+Note: If `-md MOUNTPT` specifies and upward relative path, then the WORKDIR is
 adjusted to remain at the current directory.
 
 EXAMPLES
@@ -122,7 +158,7 @@ EXAMPLES
 ```bash
 scc
 scc make
-scc -d ../.. make
+scc -md ../.. make
 ```
 
 ENVIRONMENT
@@ -141,10 +177,11 @@ The only things that should be present are the following:
 2. Blank lines
 3. Comment lines beginning with '#'
 
-| VARIABLE=DEFAULT         | MEANING                                                   |
-| ------------------------ | --------------------------------------------------------- |
-| SCC_LOADDIR=.            | Directory to load into the container (often .. or ../..)  |
-| SCC_ENVFILE=etc/env.list | List of environment variables to override                 |
+| VARIABLE=DEFAULT         | MEANING                                                             |
+| ------------------------ | ---------------------------------------------------------           |
+| SCC_MOUNTPT=.            | Directory to mount into the container (often .. or ../..)      |
+| SCC_WORKDIR=.            | Directory to start work from to relative to SCC_MOUNTPT (default .) |
+| SCC_ENVFILE=etc/env.list | List of environment variables to override                           |
 | SCC_COMMAND=             | Provides a single default command to execute when no arguments are provided. If empty, you are dropped into the bash shell. |
 
 HINT: A good way to use this feature is to place it into the project directory
@@ -156,7 +193,7 @@ Also assume a target: `run`.
 ```sh
 # FILE: ./.sccrc
 
-SCC_LOADDIR=..
+SCC_MOUNTPT=..
 SCC_ENVFILE=./env.list
 SCC_COMMAND=make run
 ```
