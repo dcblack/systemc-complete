@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Quick SystemC compile (unconditional)
+# Quick C++ compile (unconditional)
 #
 # Dependencies: DO
 
@@ -12,9 +12,9 @@ fi
 
 test -z "$CXX"  && CXX="clang++"
 test -z "$CSTD" && CSTD=17
-test -z "$INCS" && INCS="-I . -I $SYSTEMC_HOME/include"
-test -z "$LIBD" && LIBD="-L$SYSTEMC_HOME/lib"
-test -z "$LIBS" && LIBS="-lsystemc -lm"
+test -z "$INCS" && INCS="-I ."
+test -z "$LIBD" && LIBD=""
+test -z "$LIBS" && LIBS="-lm"
 test -z "$CEXE" && CEXE="./run.x"
 
 export LOGFILE='compile.log'
@@ -25,4 +25,4 @@ done
 export LOGFILE='link.log'
 DO $CXX $LIBD $LIBS -o $CEXE *.o
 export LOGFILE='run.log'
-test -x $CEXE && env LD_LIBRARY_PATH=$SYSTEMC_HOME/lib $CEXE "$@"
+test -x $CEXE && $CEXE "$@"
