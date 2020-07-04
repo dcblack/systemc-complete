@@ -103,7 +103,7 @@ fi
 
 if [[ $# == 0 && $SCC_COMMAND == "" ]]; then
   Debug "Interactive"
-  ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash )
+  ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l)
 else                                                                           
   if [[ $# != 0 ]]; then
     SCC_COMMAND="$*";
