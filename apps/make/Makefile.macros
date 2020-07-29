@@ -106,6 +106,7 @@ Lastwords=$(wordlist $(call Expr,$(words $2)-$1+1),$(words $2),$2)
 #ifneq "$(strip $(call File_contains,PATTERN,FILE_LIST))" ""
 # DO_SOMETHING
 #endif
+# ACTION: $(call File_contains,PATTERN,FILE)
 File_contains=$(shell perl -ne 'if(m{\b($1)}i){print;exit}' $2)
 # ACTION: $(call Mkdir,FILE)
 Mkdir=test -e $1 || mkdir -p $1; # create directory if non-existant
