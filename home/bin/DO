@@ -26,6 +26,7 @@ OPTIONS
   + -help -- elicits this text
   + -logfile FILE -- create logfile
   + -nocolor -- suppress color
+  + -notreally -- display but don't execute
   + -quiet -- no extra text
   + -verbose -- add extra text to aid understanding what's happening
 
@@ -48,6 +49,8 @@ EXAMPLES
 
 };
 
+our $SQ=chr(39);
+our $DQ=chr(34);
 our %OPT;
 $OPT{-delay}  = 0;# built-in default is immediate
 $OPT{-delay}  = $ENV{DELAY} if exists $ENV{DELAY}   and $ENV{DELAY}>0;
@@ -57,6 +60,7 @@ $OPT{-verbose}  = 1;# built-in default is to be verbose
 $OPT{-verbose}  = 1 if exists $ENV{VERBOSE}   and $ENV{VERBOSE}>0;
 $OPT{-verbose}  = 0 if exists $ENV{QUIET}     and $ENV{QUIET}>0;
 $OPT{-banner} = $ENV{DO_BANNER} if exists $ENV{DO_BANNER} and $ENV{DO_BANNER}>0;
+$OPT{-notreally} = $ENV{NOTREALLY} if exists $ENV{NOTREALLY};
 while (@ARGV and $ARGV[0] =~ m{^-}) {
   my $arg = shift @ARGV;
   if ($arg =~ m{^-{1,2}(?:h|help)$}) {
@@ -78,6 +82,8 @@ while (@ARGV and $ARGV[0] =~ m{^-}) {
     $OPT{-color} = 1;
   } elsif ($arg =~ m{^-{1,2}(?:nc|nocolor)$}) {
     $OPT{-color} = 0;
+  } elsif ($arg =~ m{^-{1,2}(?:n|notreally)$}) {
+    $OPT{-notreally} = 1;
   } elsif ($arg =~ m{^-{1,2}(?:delay)$}) {
     $OPT{-delay} = shift @ARGV;
   } elsif ($arg =~ m{^-{1,2}(?:l|log|logfile)=?}) {
@@ -137,7 +143,7 @@ if (opt -banner and opt -verbose) {
 my @ARGS = @ARGV;
 my $cmd = $ARGV[0];
 for my $arg (@ARGS[1..$#ARGV]) {
-  if ($arg =~ m{[\\\$\s "\{\}()\[\]]} or not($arg =~ m{^-} or $arg =~ m{^\d+$} or $arg =~ m{/} or -e $arg)) {
+  if ($arg =~ m{[\\\$\s $DQ\{\}()\[\]]} or not($arg =~ m{^-} or $arg =~ m{^\d+$} or $arg =~ m{/} or -e $arg)) {
     $arg = qq{'$arg'};
   } elsif ($arg =~ m{'}) {
     $arg = qq{\"$arg\"};
@@ -147,6 +153,7 @@ for my $arg (@ARGS[1..$#ARGV]) {
 
 # Display & Execute
 printf "%s%% %s%s%s\n",$TAG,$CMD,join(' ',@ARGS),$END if opt -verbose;
+exit 0 if opt -notreally;
 printf STDLOG "%s%% %s%s%s\n",$TAG,$CMD,join(' ',@ARGS),$END if opt -logfile;
 sleep $OPT{-delay} if opt -delay;
 my $result = qx($cmd);
@@ -158,15 +165,3 @@ if ( $status != 0 ) {
   printf STDLOG "${COLOR_RED}FAILURE (status=$status)${COLOR_OFF}\n" if opt -logfile;
 }#endif
 exit $status;
-
-__END__
-
-#!/bin/bash
-if [[ "$DO_BANNER" != "" ]]; then
-  echo ""
-  echo "----------------------------------------------------------------------"
-  banner "$1"
-  echo "----------------------------------------------------------------------"
-fi
-echo "% $@"
-"$@"
