@@ -21,7 +21,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <systemcc>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC   diagnostic push
+#pragma GCC   diagnostic ignored "-Wunused-parameter"
+#include <systemc>
+#pragma clang diagnostic pop
+#pragma GCC   diagnostic pop
 #include <string>
 using namespace sc_core;
 using namespace std;

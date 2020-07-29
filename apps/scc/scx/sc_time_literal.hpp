@@ -3,7 +3,13 @@
 
 #if __cplusplus >= 201103L
 
-#include <systemcc>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC   diagnostic push
+#pragma GCC   diagnostic ignored "-Wunused-parameter"
+#include <systemc>
+#pragma clang diagnostic pop
+#pragma GCC   diagnostic pop
 
 // The following makes time specification nicer:
 //    15.3_ns, 0.1_us, 0_sec, 1_min

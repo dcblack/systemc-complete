@@ -1,9 +1,9 @@
 #include "report/summary.hpp"
 #define REQUIRES_CPP 14
 #define REQUIRES_SC 233
-#include "common/require_version.hpp"
+#include "require_version.hpp"
 #include "report/report.hpp"
-#include "top/wallclock.hpp"
+#include "report/wallclock.hpp"
 #include <string>
 using namespace std;
 using namespace sc_core;

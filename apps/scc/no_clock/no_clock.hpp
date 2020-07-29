@@ -203,6 +203,7 @@ private:
   no_clock& operator= (const no_clock& ) = delete; // Copy assignment
   no_clock& operator= (no_clock&& ) = delete; // Move assignment
   // Attributes - internal data
+  [[maybe_unused]]
   get_time_t          m_get_time{nullptr};// callback that returns current time
   const char *        m_clock_name;// clock name
   sc_core::sc_time    m_tPERIOD; // clock period

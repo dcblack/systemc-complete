@@ -3,7 +3,11 @@
 #pragma clang diagnostic ignored "-Wunused-parameter"
 #pragma GCC   diagnostic push
 #pragma GCC   diagnostic ignored "-Wunused-parameter"
+#include <scc_version>
 #include <systemc>
+#include <scx/sc_time_literal.hpp>
+#include <scx/sc_freq.hpp>
+#include <report/report.hpp>
 #pragma clang diagnostic pop
 #pragma GCC   diagnostic pop
 //vim:syntax=systemc

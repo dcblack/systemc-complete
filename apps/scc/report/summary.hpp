@@ -1,3 +1,4 @@
+// This is useful in sc_main
 #ifndef SUMMARY_HPP
 #define SUMMARY_HPP
 

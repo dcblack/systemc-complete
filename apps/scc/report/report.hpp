@@ -18,19 +18,34 @@
  *
  * See `ABOUT_REPORT.md` for more information.
  */
-#include <systemcc>
-#include <tlmc>
+//------------------------------------------------------------------------------
+// Configure this include
+#ifndef SCC_REPORT_TIME /*< Add time stamp to INFO messages with this stream */
+// To avoid define as ""
+#define SCC_REPORT_TIME " @ " << sc_core::sc_time_stamp()
+#endif
+
+//------------------------------------------------------------------------------
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC   diagnostic push
+#pragma GCC   diagnostic ignored "-Wunused-parameter"
+#include <tlm>
+#pragma clang diagnostic pop
+#pragma GCC   diagnostic pop
 #include <string>
 #include <sstream>
 #include <iomanip>
+namespace scc {
 extern std::ostringstream mout;
+}
 #define HEX std::hex << std::showbase
 #define DEC std::dec << std::noshowbase << std::setfill(' ')
 
 #define REPORT(type,stream)                      \
 do {                                             \
-  mout << DEC << stream << std::ends;            \
-  std::string str = mout.str(); mout.str("");    \
+  scc::mout << DEC << stream << std::ends;            \
+  std::string str = scc::mout.str(); scc::mout.str("");    \
   SC_REPORT_##type( MSGID, str.c_str() );        \
 } while (0)
 
@@ -52,27 +67,27 @@ do {                                             \
 #define INFO(level,stream)                                                          \
 do {                                                                                \
   if( sc_core::sc_report_handler::get_verbosity_level() >= (sc_core::SC_##level) ) {\
-    mout << DEC << stream << std::ends;                                             \
+    scc::mout << DEC << stream << SCC_REPORT_TIME << std::ends;                     \
     if( (sc_core::SC_##level) > sc_core::SC_DEBUG ) {                               \
       std::string id{"DEBUG("};                                                     \
       id+=__FILE__ ; id+=":"; id+=std::to_string(__LINE__)+")";                     \
       size_t p0=id.find("/"),p1=id.find_last_of("/");                               \
       if(p1!=std::string::npos) id.erase(p0,p1-p0+1);                               \
-      std::string str = mout.str(); mout.str("");                                   \
+      std::string str = scc::mout.str(); scc::mout.str("");                         \
       SC_REPORT_INFO_VERB( id.c_str(), str.c_str(), (sc_core::SC_##level) );        \
     } else {                                                                        \
-      std::string str = mout.str(); mout.str("");                                   \
+      std::string str = scc::mout.str(); scc::mout.str("");                         \
       SC_REPORT_INFO_VERB( MSGID, str.c_str(), (sc_core::SC_##level) );             \
     }                                                                               \
   }                                                                                 \
 } while (0)
 
-#define MESSAGE(stream) do { mout << stream; } while(0)
+#define MESSAGE(stream) do { scc::mout << stream; } while(0)
 #define MEND(level) do {                                                            \
   if( sc_core::sc_report_handler::get_verbosity_level() >= (sc_core::SC_##level) ) {\
-    mout << std::ends;                                                              \
-    std::string str = mout.str(); mout.str("");    \
-    SC_REPORT_INFO_VERB( MSGID, str.c_str(), (sc_core::SC_##level));         \
+    scc::mout << std::ends;                                                         \
+    std::string str = scc::mout.str(); scc::mout.str("");                           \
+    SC_REPORT_INFO_VERB( MSGID, str.c_str(), (sc_core::SC_##level));                \
   }                                                                                 \
 } while (0)
 #define RULER(c) MESSAGE( std::string( 80, c ) << "\n" )
@@ -92,7 +107,9 @@ struct DELETE_THIS
 
 std::string to_string( tlm::tlm_command command );
 std::string to_string( uint8_t const * const data, uint32_t len );
+namespace scc {
 std::string verbosity2str(const int& level);
+}
 template<typename T>
 std::ostream& operator<<( std::ostream& os, const std::vector<T>& vec );
 

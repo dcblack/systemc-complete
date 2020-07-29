@@ -11,7 +11,13 @@
 
 #if __cplusplus >= 201103L
 
-#include <systemcc>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC   diagnostic push
+#pragma GCC   diagnostic ignored "-Wunused-parameter"
+#include <systemc>
+#pragma clang diagnostic pop
+#pragma GCC   diagnostic pop
 #include <iostream>
 #include <cmath>
 

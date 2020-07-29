@@ -1,9 +1,13 @@
 #ifndef SC_CXX11_HPP
 #define SC_CXX11_HPP
 
-#include <systemcc>
-#include "scx/sc_time_literal.hpp"
-#include "scx/sc_freq.hpp"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma GCC   diagnostic push
+#pragma GCC   diagnostic ignored "-Wunused-parameter"
+#include <systemc>
+#pragma clang diagnostic pop
+#pragma GCC   diagnostic pop
 
 #if __cplusplus >= 201103L
 
