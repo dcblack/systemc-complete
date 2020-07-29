@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 ###
 ### $Info: Invoke cmake/make in build directory if present and generate logfile. $
 t='
@@ -63,7 +63,6 @@ In the process of doing its job, a `build/` directory is created to keep the gen
 + cppcheck
 + filter-mlog
 + filter-sclog
-+ realpath
 + header
 + ruler
 
@@ -98,6 +97,14 @@ fi
 NO_COLOR=0
 COLOR_EMPTY=''
 if [[ $NO_COLOR == 0 ]]; then
+  COLOR_NORM_BLK='[01;30m'
+  COLOR_NORM_RED='[01;31m'
+  COLOR_NORM_GRN='[01;32m'
+  COLOR_NORM_YLW='[01;33m'
+  COLOR_NORM_BLU='[01;34m'
+  COLOR_NORM_MAG='[01;35m'
+  COLOR_NORM_CYN='[01;36m'
+  COLOR_NORM_WHT='[01;37m'
   COLOR_BOLD_BLK='[01;30m'
   COLOR_BOLD_RED='[01;31m'
   COLOR_BOLD_GRN='[01;32m'
@@ -109,6 +116,14 @@ if [[ $NO_COLOR == 0 ]]; then
   COLOR_BOLD='[01m'
   COLOR_NONE='[00m'
 else
+  COLOR_NORM_BLK=''
+  COLOR_NORM_RED=''
+  COLOR_NORM_GRN=''
+  COLOR_NORM_YLW=''
+  COLOR_NORM_BLU=''
+  COLOR_NORM_MAG=''
+  COLOR_NORM_CYN=''
+  COLOR_NORM_WHT=''
   COLOR_BOLD_BLK=''
   COLOR_BOLD_RED=''
   COLOR_BOLD_GRN=''
@@ -125,7 +140,7 @@ function Info() { # Call this with message to report errors
   echo "${COLOR_EMPTY}Info: $@"${COLOR_EMPTY}
 }
 function Error() { # Call this with message to report errors
-  echo "${COLOR_BOLD_RED}Error: $@"${COLOR_NONE} 1>&2
+  printf "${COLOR_BOLD_RED}Error:${COLOR_NORM_RED} $*${COLOR_NONE}\n" 1>&2
   let error_count++
 }
 function firstreal () { # returns first argument that is a real file or directory
@@ -145,15 +160,25 @@ function findbin() {
   echo ""
 }
 
+function Realpath () {
+  test -z "$*" && echo "" || \
+  perl '-MCwd(abs_path)' -le "print abs_path(qq($*))"
+}
+
 #-------------------------------------------------------------------------------
 # Determine build directory (may be overridden later)
 #-------------------------------------------------------------------------------
 BUILD_DIRNAME='build'
 BUILD_LOGNAME='build.log'
 RUN_LOGNAME='run.log'
-CMAKELIST="$(realpath $(firstreal $(add_suffix /CMakeLists.txt . .. ../.. ../../..)))"
+CMAKELIST="$(Realpath $(firstreal $(add_suffix /CMakeLists.txt . .. ../.. ../../..)))"
+if [[ "$CMAKELIST" == "" ]]; then
+  Error "Unable to find 'CMakeLists.txt' -- To create try:\n\tscc new sc-cmake YourTarget 'SRCS=\"\$(echo *.cpp)\"'"
+  echo "Please fix and retry."
+  exit 1
+fi
 ROOT_DIR=$(dirname "$CMAKELIST")
-BUILD_DIR="$(realpath $(firstreal $(add_suffix /$BUILD_DIRNAME . .. ../.. ../../..) build))"
+BUILD_DIR="$(Realpath $(firstreal $(add_suffix /$BUILD_DIRNAME . .. ../.. ../../..) build))"
 if [[ "$SYSTEMC_HOME" != "" ]]; then
   export SYSTEMC="$SYSTEMC_HOME"
 fi
@@ -262,7 +287,7 @@ while [[ "$1" =~ -.* ]]; do
     shift
   elif [[ "$1" == '-B' ]]; then
     if [[ $# -ge 2 && -d "$2" ]]; then
-      BUILD_DIR="$(realpath $2)"
+      BUILD_DIR="$(Realpath $2)"
       shift
     else
       Error "Must supply existing directory name with $1 option."
