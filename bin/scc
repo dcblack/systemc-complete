@@ -2,14 +2,27 @@
 
 DOCKER="/usr/local/bin/docker"
 
-Realpath () {
+function Realpath () {
+  test -z "$*" && echo "" || \
   perl '-MCwd(abs_path)' -le "print abs_path(qq($*))"
 }
 
-Debug () {
+function Debug () {
   if [[ "$DEBUG" == 1 ]]; then
     echo "DEBUG: $*"
   fi
+}
+
+function Alternate() {
+  T="."
+  P="$(pwd)"
+  H="$1"
+  while [[ "$H" != "." ]]; do
+    T=$(basename "$P")/"$T"
+    P=$(dirname "$P")
+    H=$(dirname "$H")
+  done
+  echo "$(dirname $T)"
 }
 
 SCC_RC="$HOME/.sccrc"
@@ -31,7 +44,6 @@ if [[ -r "./$(basename $SCC_RC)" ]]; then
 fi
 
 HELP=0
-SCC_VERBOSE=0
 if [[ -t 0 ]]; then
   BACKGROUND=0
 else
@@ -46,9 +58,9 @@ while [[ "$1" =~ ^-.* ]]; do
   elif [[ "$1" == "-debug" ]]; then
     DEBUG=1
   elif [[ "$1" == "-q" ]]; then
-    SCC_VERBOSE=-1
+    let --SCC_VERBOSE
   elif [[ "$1" == "-v" ]]; then
-    SCC_VERBOSE=1
+    let ++SCC_VERBOSE
   elif [[ "$1" == "-e" ]]; then
     if [[ ! -r "$2" ]]; then
       echo "Fatal: '$2' not readable" 1>&2
@@ -67,15 +79,7 @@ while [[ "$1" =~ ^-.* ]]; do
       exit 1
     fi
     if [[ "$2" =~ ^\.\.(/\.\.)*$ ]]; then
-      T="."
-      P="$(pwd)"
-      H="$2"
-      while [[ "$H" != "." ]]; do
-        T=$(basename "$P")/"$T"
-        P=$(dirname "$P")
-        H=$(dirname "$H")
-      done
-      SCC_WORKDIR="$(dirname $T)"
+      SCC_WORKDIR="$(Alternate $2)"
     fi
     shift;
   elif [[ "$1" == "-wd" ]]; then
@@ -89,6 +93,11 @@ while [[ "$1" =~ ^-.* ]]; do
   fi
   shift
 done
+if [[ "$1" =~ ^[.]{2}(/[.]{2})*$ ]]; then
+  SCC_MOUNTPT=$(Realpath "$1")
+  SCC_WORKDIR=$(Alternate "$1")
+  shift;
+fi
 
 if [[ ! -r "$SCC_ENVFILE" ]]; then
   echo "Fatal: SCC_ENVFILE='$SCC_ENVFILE' not readable" 1>&2
@@ -103,7 +112,7 @@ fi
 
 if [[ $# == 0 && $SCC_COMMAND == "" ]]; then
   Debug "Interactive"
-  ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l)
+  ( test $SCC_VERBOSE -gt 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l)
 else                                                                           
   if [[ $# != 0 ]]; then
     SCC_COMMAND="$*";
@@ -112,12 +121,12 @@ else
     if [[ $DEBUG == 1 ]]; then
       Debug "Background command: $SCC_COMMAND"
     fi
-    ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -c "$SCC_COMMAND" )
+    ( test $SCC_VERBOSE -gt 0 && set -x; $DOCKER run --rm -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -c "$SCC_COMMAND" )
   else
     if [[ $DEBUG == 1 ]]; then
       Debug "Terminal command: $SCC_COMMAND"
     fi
-    ( test $SCC_VERBOSE -ge 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -c "$SCC_COMMAND" )
+    ( test $SCC_VERBOSE -gt 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l -c "$SCC_COMMAND" )
   fi
 fi
 
