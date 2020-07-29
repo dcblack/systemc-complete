@@ -1,28 +1,287 @@
-#!/bin/bash
-#
-# Quick SystemC compile (unconditional)
-#
-# Dependencies: DO
+#!/usr/bin/bash
+
+export QSCHELP=<<'EOF'
+## SYNOPSIS
+
+Quick SystemC compile (unconditional)
+
+## SYNTAX
+
+```sh
+qsc [OPTIONS] [SOURCES]
+```
+
+ + Options supported include `-W{flag} -C -O{opt} -D{name}={value} -I{dir} -L{dir} -l{lib} -help`
+ + Option --dump shows values of all options just prior to execution
+ + Option -n suppresses actual execution and just displays what would have been attempted
+ + Option --strict disallows -Wno-unused-parameter (see LINT)
+ + Other options take the form 'NAME=VALUE'
+ + Sources should end with .cpp, .c or .cxx
+
+## OPTIONS
+
+ + CXX  => C++ compiler executable (e.g. clang++ or g++)
+ + COPT => Compiler optimization level (default O0 -g)
+ + CSTD => C++ standard as two digits (default 17)
+ + LINT => Compiler lint warnings (default --pedantic -Wall -Wextra -Wno-unused-parameter)
+ + DEFS => C++ definitions (e.g. -DNDEBUG)
+ + INCS => Include directories (default -I.) -- SystemC added automatically
+ + LIBD => Library directories -- SystemC added automatically
+ + LIBS => Library names -- SystemC added automatically
+ + BDIR => Build directory (default ./build/)
+ + ODIR => Object directory (default $BDIR/CMakeFiles/qsc.dir/)
+ + XDIR => Executable directory (default ./)
+ + CEXE => Executable name (default run.x)
+
+## EXAMPLES
+
+```sh
+qsc *.cpp
+```
+
+## DEPENDENCIES
+
+DO perl fgrep sed basename mkdir test
+
+EOF
+
+function Debug () {
+  if [[ "$DEBUG" == 1 ]]; then
+    echo "DEBUG: $*"
+  fi
+}
+
+function Exit() {
+  echo "EXIT: $*"
+  exit 2
+}
+
+SRCS=
+function Has() {
+  local NOT=0
+  if [[ "$1" == '-not' ]]; then
+    NOT=1
+    shift
+  fi
+  local SRC
+  for WORD in "$@"; do
+    for SRC in $SRCS; do
+      if fgrep -q -s -w -e "$WORD" $SRC; then
+        return $NOT
+      fi
+    done
+  done
+  return $(expr 1 - $NOT)
+}
+
+let ERRORS=0
+
+# Parse supplied options (override defaults)
+while [[ "$1" =~ ^-.* ]]; do
+  if [[ "$1" =~ ^--?h(elp)?$ ]]; then
+    printf "%s\n" "$QSCHELP"
+    exit 0
+  elif [[ "$1" =~ ^--?debug$ ]]; then
+    DEBUG=1
+  elif [[ "$1" =~ ^--?dump$ ]]; then
+    DUMP=1
+  elif [[ "$1" =~ ^-n$ ]]; then
+    export NOTREALLY="$1"
+  elif [[ "$1" =~ ^-W.* ]]; then
+    opt="$1"
+    WARN="$WARN $opt"
+  elif [[ "$1" =~ ^-C$ ]]; then
+    NOLINK=1
+  elif [[ "$1" =~ ^-D.* ]]; then
+    opt="$1"
+    DEFS="$DEFS $opt"
+  elif [[ "$1" =~ ^-O.* ]]; then
+    opt="$1"
+    COPT="$opt"
+  elif [[ "$1" =~ ^-I.* ]]; then
+    if [[ "$1" == "-I" ]]; then
+      opt="-I $2"
+      shift
+    else
+      opt="$1"
+    fi
+    if [[ "$INCS" == "" ]]; then
+      opt="-I. $opt"
+    fi
+    INCS="$INCS $opt"
+  elif [[ "$1" =~ ^-L.* ]]; then
+    if [[ "$1" == "-L" ]]; then
+      opt="-L $2"
+      shift
+    else
+      opt="$1"
+    fi
+    LIBD="$LIBD $opt"
+  elif [[ "$1" =~ ^-l.* ]]; then
+    if [[ "$1" == "-l" ]]; then
+      opt="-l $2"
+      shift
+    else
+      opt="$1"
+    fi
+    LIBS="$LIBS $opt"
+  elif [[ "$1" =~ ^--strict$ ]]; then
+    STRICT=1
+  else
+    echo "ERROR: Unknown option '$1'" 1>&2
+    let ++ERRORS
+  fi
+  shift
+done
+while [[ "$1" =~ .*=.* ]]; do
+  eval "export \"$1\""
+  shift
+done
+if [[ $ERRORS != 0 ]]; then
+  echo "Please fix errors above and try again. For more details use -help" 1>&2
+  exit 1
+fi
 
 if [[ $# == 0 ]]; then
   SRCS="$(echo *.cpp)"
 else
   SRCS="$*"
 fi
+if Has '<systemcc>' '<tlmc>' 'report.hpp'; then
+  if [[ "$SCC_HOME" == '' ]]; then
+    echo "Using SystemC Complete requires environment variable SCC_HOME to be defined." 1>&2
+    exit 1
+  elif [[ ! -r "$SCC_HOME/systemcc" ]]; then
+    echo "SCC_HOME does not point to a valid directory." 1>&2
+    exit 1
+  fi
+  SRCS="$(find $SCC_HOME -name '*.cpp') $SRCS"
+fi
 
+# Options
 test -z "$CXX"  && CXX="clang++"
+test -z "$COPT" && COPT="-O0"
 test -z "$CSTD" && CSTD=17
-test -z "$INCS" && INCS="-I . -I $SYSTEMC_HOME/include"
-test -z "$LIBD" && LIBD="-L$SYSTEMC_HOME/lib"
-test -z "$LIBS" && LIBS="-lsystemc -lm"
-test -z "$CEXE" && CEXE="./run.x"
+test -z "$LINT" && LINT="--pedantic -Wall -Wextra $WARN"
+test -z "$INCS" && INCS="-I ."
+test -z "$DEFS" && DEFS=""
+test -z "$LIBD" && LIBD=""
+test -z "$LIBS" && LIBS=""
+test -z "$BDIR" && BDIR="build"
+test -z "$ODIR" && ODIR="$BDIR/CMakeFiles/qsc.dir"
+test -z "$XDIR" && XDIR="."
+test -z "$CEXE" && CEXE="run.x"
+test -z "$MNRE" && MNRE="int main"
+test -z "$ERRF" && ERRF="errors.log"
 
-export LOGFILE='compile.log'
-rm -f $CEXE *.o
-for FILE in $SRCS; do
-  DO $CXX -std=c++$CSTD --pedantic -Wall $INCS -c $FILE
+# Modifications
+if [[ "$STRICT" != 1 ]]; then
+  LINT="$LINT -Wno-unused-parameter"
+fi
+if Has tlm systemc sc_core sc_dt sc_main SC_MODULE; then
+  # SystemC Complete
+  if [[ "$SCC_HOME" != '' && -d "$SCC_HOME" ]]; then
+    INCS="$INCS -I$SCC_HOME"
+  fi
+  # SystemC
+  if [[ ! -d $SYSTEMC_HOME/include ]]; then
+    echo "Error: SYSTEMC_HOME is not properly defined." 1>&2
+    exit 1
+  fi
+  SYSC=1
+  INCS="$INCS -I$SYSTEMC_HOME/include"
+  LIBD="$LIBD -L$SYSTEMC_HOME/lib"
+  LIBS="$LIBS -lsystemc -lm"
+fi
+if Has sc_spawn; then
+  DEFS="$DEFS -DSC_INCLUDE_DYNAMIC_PROCESSES"
+fi
+if Has sc_fix sc_ufix; then
+  DEFS="$DEFS -DSC_INCLUDE_FX"
+fi
+if Has '<thread>' '<mutex>'; then
+  echo "INFO: Adding threads"
+  LIBS="$LIBS -lpthread"
+  COPT="$COPT -pthread"
+fi
+# Remove extra whitespace
+for N in SRCS COPT LINT DEFS INCS LIBD LIBS; do
+  V=$(eval echo -n \$$N)
+  V="$(echo $V|sed -e 's/^  *//' -e 's/  *$//' -e 's/   */ /g')"
+  eval "$N='$V'"
 done
+
+# Dump if requested
+if [[ "$DUMP" == 1 ]]; then
+  echo "Option dump:"
+  for V in CXX COPT CSTD LINT DEFS INCS LIBD LIBS BDIR ODIR XDIR CEXE; do
+    echo "  $V=$(eval echo -n \$$V)"
+  done
+  echo "--------------------"
+fi
+
+# Setup directories to hold object and executable
+mkdir -p "$ODIR"
+
+# Compile
+export LOGFILE='compile.log'
+echo "# Compiling on $(date)" | tee $LOGFILE;
+rm -f "$XDIR"/"$CEXE" "$ODIR"/*.o "$ERRF"
+touch "$ERRF"
+for FILE in $SRCS; do
+  BASE=$(basename "$FILE"|sed -e s/[.][^.][^.]*$//)
+  echo "% $CXX -std=c++$CSTD $LINT $COPT -g $DEFS $INCS -o '$ODIR/$BASE'.o -c '$FILE'";
+  test "$NOTREALLY" = '-n' || \
+          $CXX -std=c++$CSTD $LINT $COPT -g $DEFS $INCS -o "$ODIR/$BASE".o -c "$FILE" 2>&1 || echo "$FILE" >> "$ERRF"
+done | tee -a $LOGFILE | perl -ne 'print if !m{/apps/scc/\S+\.cpp}'
+let ERRORS+=$(perl -lne 'END{print $.}' "$ERRF")
+if [[ $ERRORS != 0 ]]; then
+  echo "Please fix compilation errors shown in $LOGFILE" 1>&2
+  exit 1
+fi
+
+# Check for compile only
+let HAS_MAIN=0
+for FILE in $SRCS; do
+  if fgrep -w -q "$MNRE" "$FILE"; then
+    let ++HAS_MAIN
+  fi
+done
+if Has -not 'int sc_main' 'int main'; then
+  echo "INFO: Compilation only because no main found."
+  exit 0
+fi
+if [[ "$NOLINK" == 1 ]]; then
+  exit 0
+fi
+
+# Link
+rm -f "$ERRF"
+touch "$ERRF"
 export LOGFILE='link.log'
-DO $CXX $LIBD $LIBS -o $CEXE *.o
+echo "# Linking $CEXE on $(date)" | tee $LOGFILE;
+for f in 1; do #< single invocation intended
+  echo "% $CXX $LIBD $LIBS -o '$XDIR/$CEXE' '$ODIR'/*.o"; test "$NOTREALLY" = '-n' || \
+          $CXX $LIBD $LIBS -o "$XDIR/$CEXE" "$ODIR"/*.o 2>&1 || echo "$FILE" >> "$ERRF"
+done | tee -a $LOGFILE
+let ERRORS+=$(perl -lne 'END{print $.}' "$ERRF")
+if [[ $ERRORS != 0 ]]; then
+  echo "Please fix link errors shown in $LOGFILE"
+  exit 1
+fi
+rm -f "$ERRF"
+
+# Execute
 export LOGFILE='run.log'
-test -x $CEXE && env LD_LIBRARY_PATH=$SYSTEMC_HOME/lib $CEXE "$@"
+if test -x "$XDIR"/"$CEXE"; then
+  echo "# Running $CEXE on $(date)" | tee $LOGFILE;
+  if [[ "$SYSC" == 1 ]]; then
+    echo "% env LD_LIBRARY_PATH=$SYSTEMC_HOME/lib '$XDIR/$CEXE' '$@'"; test "$NOTREALLY" = '-n' || \
+            env LD_LIBRARY_PATH=$SYSTEMC_HOME/lib "$XDIR/$CEXE" "$@" 2>&1 | tee -a $LOGFILE
+  else
+    echo "% '$XDIR/$CEXE' '$@'"; test "$NOTREALLY" = '-n' || \
+            "$XDIR/$CEXE" "$@" 2>&1 | tee -a $LOGFILE
+  fi
+fi
+
+exit 0
