@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [[ $# -gt 1 ]]; then
+  echo "ERROR: Too many arguments" 1>&2
+  exit 1
+fi
+if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
+  echo "SYNTAX: clean [all]"
+  exit 0
+fi
+
+find . -name '*.[doxP]' -exec rm -v {} \;
+if [[ "$1" == all ]]; then
+  find . -name '*.log' -exec rm -v {} \;
+  test -d build && rm -fr build/* build/.???*
+elif [[ "$1" == spotless ]]; then
+  find . -name '*.log' -exec rm -v {} \;
+  test -d build && rm -fr build
+fi

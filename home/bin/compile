@@ -1,0 +1,246 @@
+#!/bin/bash
+
+HELP=<<'EOF'
+## SYNOPSIS
+
+Simple compile
+
+## SYNTAX
+
+```sh
+compile [OPTIONS] [TARGET] [SOURCES]
+```
+
+## OPTIONS
+
+ + Options supported include `-W{flag} -D{name}={value} -I{dir} -L{dir} -l{lib} -help`
+ + Option --opts shows values of all options just prior to execution
+ + Option -n suppresses actual execution and just displays what would have been attempted
+ + Option --strict disallows -Wno-unused-parameter (see CHKS)
+ + Other options take the form 'NAME=VALUE'
+ + Sources should end with .cpp, .c or .cxx
+
+## TARGETS
+
+The TARGET defaults to `compile link run`, which does exactly what it implies if possible.
+
+If you wish to compile only or link only, you may do so by using one of those keywords.
+
+Other targets are available including:
+
+Target | Description
+------ | -----------
+clean  | Removes generated files (including log files)
+opts   | Same as -opt option
+
+## VARIABLES
+
+Additonal options maybe specified by using supported variable names followed by an equals symbol and a value. If spaces are needed, then the option should be surrounded with the appropriate quotations. See EXAMPLES section.
+
+The following are occasionally modified:
+
+Option | Description
+------ | -----------
+COPT   | Compiler optimization level (default O0)
+
+The following are unusual to specify or modify. Many can be modified with ordinary command-line options above.
+
+Option | Description
+------ | -----------
+BDIR   | Build directory (default ./build)
+CC     | C compiler executable (e.g. clang or gcc)
+CEXE   | Executable name (default run.x)
+CHKS   | Compiler lint warnings (default --pedantic -Wall -Wextra -Wno-unused-parameter)
+CLEAN  | List of files to clean (default everything generated)
+CLOG   | Compilation log file (default ./compile.log)
+CPPSTD | C++ standard as two digits (default 17)
+CSTD   | C++ standard as two digits (default 11)
+CXX    | C++ compiler executable (e.g. clang++ or g++)
+DEBUG  | Debug compilation option (default -g)
+DEFS   | C++ definitions (e.g. -DNDEBUG)
+INCS   | Include directories (default -I.) -- SystemC added automatically
+LIBD   | Library directories -- SystemC added automatically
+LIBS   | Library names -- SystemC added automatically
+LLOG   | Link log file (default ./link.log)
+LOGS   | List of log files to remove when cleaning
+ODIR   | Object directory (default $BDIR/obj.dir)
+RLOG   | Run log file (default ./run.log)
+SRCS   | Source files (default *.c *.cpp)
+TARG   | Make target (default run)
+WARN   | Additional warnings or suppression
+XDIR   | Executable directory (default .)
+
+## EXAMPLES
+
++ Compile, link and run all files ending in `.cpp` and `.c` in the local directory.
+
+```sh
+compile
+```
+
++ Compile and link all specified files.
+
+```sh
+compile --nostrict srcs/*.cpp
+```
+
++ The following unusual example shows how to:
+
+1. Ensures the default compiler is LLVM's clang++
+2. Turns off debug symbol generation (not recommended)
+3. Replaces checks to remove -Wextra (not recommended)
+4. Change the C++ filename extension to `.cxx` instead of the default `.cpp`
+
+```sh
+compile CXX=clang++ DEBUG= CHKS='--pedantic -Wall' CPPEXT=cxx
+```
+
++ Remove compile & link log files, but not run.
+
+```sh
+compile LOGS='compile.log link.log' clean
+```
+
+## DEPENDENCIES
+
+DO perl fgrep sed basename mkdir test
+
+EOF
+
+let ERRORS=0
+declare -a KNOWN_LIST=(
+  CPPEXT SRCS   BDIR   ODIR   XDIR   CC     CXX    COPT   CSTD   CPPSTD 
+  CHKS   INCS   DEFS   DEBUG  CEXE   LIBD   LIBS   LIBF   EXEC   
+  MNRE   CLOG   LLOG   RLOG   LOGS   CLEAN )  
+declare -A IS_KNOWN=()
+for var in ${KNOWN_LIST[@]}; do
+  IS_KNOWN[$var]=1
+done
+declare -A ASKED=()
+declare -a OTHER_LIST=()
+function AddOpt() {
+  for v in "$@"; do
+    if [[ -z ${ASKED[$v]} && -z ${IS_KNOWN[$v]} ]]; then
+      OTHER_LIST+=( $v )
+    fi
+    ASKED[$v]=1
+  done
+}
+
+# Parse supplied options (override defaults)
+while [[ $# != 0  ]]; do
+  if [[ "$1" =~ ^--?h(elp)?$ ]]; then
+    echo $HELP
+    exit 0
+  elif [[ "$1" =~ ^--?debug$ ]]; then
+    SCC_DEBUG=1
+    AddOpt SCC_DEBUG
+  elif [[ "$1" =~ ^--?dump$ ]]; then
+    DUMP=1
+  elif [[ "$1" =~ ^--?opts$ ]]; then
+    SHOWOPTS=1
+  elif [[ "$1" =~ ^-n$ ]]; then
+    export NOTREALLY="$1"
+    AddOpt NOTREALLY
+  elif [[ "$1" =~ ^-W.* ]]; then
+    opt="$1"
+    WARN+=" $opt"
+    AddOpt WARN
+  elif [[ "$1" =~ ^-D.* ]]; then
+    opt="$1"
+    DEFS+=" $opt"
+    AddOpt DEFS
+  elif [[ "$1" =~ ^-I.* ]]; then
+    if [[ "$1" == "-I" ]]; then
+      opt="-I $2"
+      shift
+    else
+      opt="$1"
+    fi
+    if [[ "$INCS" == "" ]]; then
+      opt="-I. $opt"
+    fi
+    INCS+=" $opt"
+    AddOpt INCS
+  elif [[ "$1" =~ ^-L.* ]]; then
+    if [[ "$1" == "-L" ]]; then
+      opt="-L $2"
+      shift
+    else
+      opt="$1"
+    fi
+    LIBD+=" $opt"
+    AddOpt LIBD
+  elif [[ "$1" =~ ^-l.* ]]; then
+    if [[ "$1" == "-l" ]]; then
+      opt="-l $2"
+      shift
+    else
+      opt="$1"
+    fi
+    LIBS+=" $opt"
+    AddOpt LIBS
+  elif [[ "$1" =~ ^--nostrict$ ]]; then
+    STRICT=0
+  elif [[ "$1" =~ ^[a-z]+$ ]]; then
+    TARG+=" $1"
+  elif [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]+= ]]; then
+    var=$(echo "$1"|sed -e 's/=.*//')
+    val=$(echo "$1"|sed -e 's/^[^=]+=//')
+    AddOpt $var
+    $(eval '$var="$val"')
+  else
+    echo "ERROR: Unknown option '$1'" 1>&2
+    let ++ERRORS
+  fi
+  shift
+done
+while [[ "$1" =~ .*=.* ]]; do
+  eval "export \"$1\""
+  shift
+done
+if [[ $ERRORS != 0 ]]; then
+  echo "Please fix errors above and try again. For more details use -help" 1>&2
+  exit 1
+fi
+
+if [[ "$TARG" == "" ]]; then
+  TARG=run
+fi
+
+# Modifications
+if [[ "$STRICT" != 1 ]]; then
+  WARN+=" -Wno-unused-parameter"
+  AddOpt WARN
+fi
+
+# Create OPTS
+for var in ${KNOWN_LIST[@]}; do
+  if [[ ${ASKED[$var]} == 1 ]]; then
+    val="$(eval 'echo $'$var)"
+    OPTS+=" $var='$val'"
+  fi
+done
+for var in ${OTHER_LIST[@]}; do
+  val="$(eval 'echo $'$var)"
+  OPTS+=" $var='$val'"
+done
+
+# Dump
+if [[ "$DUMP" == 1 ]]; then
+  echo "OTHER_LIST=$OTHER_LIST"
+  for opt in ${OPTS[@]}; do
+    echo "  >$opt<"
+  done
+  exit 0
+fi
+
+# Show options if requested
+if [[ "$SHOWOPTS" == 1 ]]; then
+  make -f $SCC_APPS/make/Makefile.defs $OPTS opts
+fi
+
+echo "% make -f $SCC_APPS/make/Makefile.defs $OPTS $TARG"
+        make -f $SCC_APPS/make/Makefile.defs $OPTS $TARG
+
+exit $?
