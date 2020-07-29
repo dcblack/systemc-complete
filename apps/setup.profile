@@ -2,27 +2,33 @@
 #
 # Sets up the environment inside the SystemC docker container
 
-set -o vi
+case "$-" in
+  *i*)  set -o vi
+        set ignoreeof
+        test -r "$BASH_ENV" && . "$BASH_ENV"
+        ;;
+esac
+
 alias  cls='clear'
 alias  ls='ls -ABCF --color'
+alias  tree='tree -ACF'
 alias  m='less'
 export LESS='afrMRXj4x4'
 
+export SCC_APPS=/apps
+export SCC_HOME=$SCC_APPS/scc
+
 # Setup path
-PATH=/apps/bin:${PATH}
+PATH=$SCC_APPS/bin:${PATH}
 if [[ -d "$HOME/bin" ]]; then
   PATH="$HOME/bin":${PATH}
 fi
 export PROJ_ROOT="$HOME/work"
 export BOOST_HOME=/usr/include/boost
-export SYSTEMC_HOME=/apps/systemc
-export CCI_HOME=/apps/cci
+export SYSTEMC_HOME=$SCC_APPS/systemc
+export CCI_HOME=$SCC_APPS/cci
 export LD_LIBRARY_PATH=$SYSTEMC_HOME/lib
-export TEMPLATEPATH=/home/sc_user/work/templates:/apps/sc-templates
-
-# Setup vimrc
-mkdir -p "$HOME/.vim"
-rsync -au /apps/.vim "$HOME/"
+export TEMPLATEPATH=/home/sc_user/work/templates:$SCC_APPS/sc-templates
 
 # Allow for overrides
 if [[ -x "$HOME/.bashrc" ]]; then
@@ -36,6 +42,9 @@ if [[ "$hpath" != "$cpath" ]]; then
   fi
 fi
 
-if [[ -d "$WORKDIR" ]]; then
-  cd "$WORKDIR"
+if [[ -d "$SCC_WORKDIR" ]]; then
+  cd "$SCC_WORKDIR"
+fi
+if [[ "$SCC_LOGIN" != "" ]]; then
+  $SCC_LOGIN
 fi
