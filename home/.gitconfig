@@ -1,0 +1,56 @@
+[user]
+	name = Anonymous Student
+	email = sc_user@doulos.com
+[color]
+	pager = true
+	ui = auto
+
+[core]
+        pager = less -FRSX
+	editor = vim -p
+ 	excludesfile = /Users/sc_user/.gitexcludes
+	quotepath = false
+	mergeoptions = --no-ff
+
+[merge]
+        tool = vimdiff
+
+[alias]
+	branches = log --pretty=format:\"%h %s\" --graph
+	co = checkout
+	changed = ls-files -m
+	changes = status -s -uno
+	diffs = !git diff $(git ls-files -m)
+	hash = hash-object
+	info = rev-parse HEAD
+	missed = ls-files -o
+	pwd = branch -v
+	remotes = remote -v
+	tags = tag -l
+	unstage = reset HEAD
+	untrack = rm --cached
+	update = !git pull && git submodule update --init --recursive
+        stashes = stash list
+        tags = "!git for-each-ref --count=3 --sort='-*authordate' --format='%(*refname) %(*authorname) %(*subject) %(*authordate)' refs/tags/* | perl -pe 's-refs/tags/--;s{... }{  };'"
+        unstash = stash apply
+
+[push]
+	default = current
+
+[credential]
+	helper = osxkeychain
+[filter "media"]
+	clean = git media clean %f
+	smudge = git media smudge %f
+	required = true
+[filter "hawser"]
+	clean = git hawser clean %f
+	smudge = git hawser smudge %f
+	required = true
+[gc]
+	autoDetach = false
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
