@@ -20,14 +20,14 @@ while [[ $# -gt 0 ]]; do
     V=''
   elif [[ "$1" =~ ^-{1,2}v(erbose)?$ ]]; then
     V='-v'
-  elif [[ "$1" =~ ^-all$ ]]; then
+  elif [[ "$1" =~ ^-{1,2}a(ll)$ ]]; then
     OPTS=A
-  elif [[ "$1" =~ ^-exe$ ]]; then
+  elif [[ "$1" =~ ^-{1,2}exe$ || "$1" =~ ^-x$ ]]; then
     OPTS+=X
-  elif [[ "$1" =~ ^-logs$ ]]; then
+  elif [[ "$1" =~ ^-{1,2}logs$ ]]; then
     OPTS+=L
   elif [[ "$1" =~ ^- ]]; then
-    echo "ERROR: Bad option '$1'." 1>&2
+    echo "ERROR: Unknown option '$1'." 1>&2
     exit 1
   elif [[ -d "$1" ]]; then
     let ++i
@@ -50,6 +50,6 @@ for DIR in ${DIRS[@]}; do
     find "$DIR" -type f -name '*.x' -exec rm $V {} \;
   elif [[ $OPTS =~ A ]]; then
     find "$DIR" -type f -name '*.log' -exec rm $V {} \;
-    find "$DIR" -type d -name build -exec rm $V -fr build \;
+    find "$DIR" -type d -name build -exec rm $V -fr {} \;
   fi
 done
