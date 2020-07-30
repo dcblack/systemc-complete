@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 HELP=<<'EOF'
 ## SYNOPSIS
@@ -10,15 +10,19 @@ Simple compile
 ```sh
 compile [OPTIONS] [TARGET] [SOURCES]
 ```
+ + Sources must have an extension (e.g. .cpp or .c)
 
 ## OPTIONS
 
- + Options supported include `-W{flag} -D{name}={value} -I{dir} -L{dir} -l{lib} -help`
- + Option --opts shows values of all options just prior to execution
- + Option -n suppresses actual execution and just displays what would have been attempted
- + Option --strict disallows -Wno-unused-parameter (see CHKS)
+ + `-W{flag} -D{name}={value} -I{dir} -L{dir} -l{lib} -help`
+ + `--opts` shows values of all options just prior to execution
+ + `-llvm` or -gnu select the compiler tools (aka -clang or -gcc)
+ + `-std=c++NN` selects the appropriate standard for C++ compilation
+ + `-std=cNN` selects the appropriate standard for C compilation
+ + `-n` suppresses actual execution and just displays what would have been attempted
+ + `--nocolor` suppresses terminal coloring
+ + `--nostrict` disallows -Wno-unused-parameter (see CHKS)
  + Other options take the form 'NAME=VALUE'
- + Sources should end with .cpp, .c or .cxx
 
 ## TARGETS
 
@@ -66,7 +70,6 @@ LOGS   | List of log files to remove when cleaning
 ODIR   | Object directory (default $BDIR/obj.dir)
 RLOG   | Run log file (default ./run.log)
 SRCS   | Source files (default *.c *.cpp)
-TARG   | Make target (default run)
 WARN   | Additional warnings or suppression
 XDIR   | Executable directory (default .)
 
@@ -92,7 +95,7 @@ compile --nostrict srcs/*.cpp
 4. Change the C++ filename extension to `.cxx` instead of the default `.cpp`
 
 ```sh
-compile CXX=clang++ DEBUG= CHKS='--pedantic -Wall' CPPEXT=cxx
+compile CXX=clang++ DEBUG= CHKS='--pedantic -Wall' CPPEXT=cxx my.cxx
 ```
 
 + Remove compile & link log files, but not run.
@@ -111,17 +114,26 @@ let ERRORS=0
 declare -a KNOWN_LIST=(
   CPPEXT SRCS   BDIR   ODIR   XDIR   CC     CXX    COPT   CSTD   CPPSTD 
   CHKS   INCS   DEFS   DEBUG  CEXE   LIBD   LIBS   LIBF   EXEC   
-  MNRE   CLOG   LLOG   RLOG   LOGS   CLEAN )  
+  MNRE   CLOG   LLOG   RLOG   LOGS   CLEAN  NOTREALLY     SCC_DEBUG STRICT NOCOLOR
+)  
 declare -A IS_KNOWN=()
 for var in ${KNOWN_LIST[@]}; do
   IS_KNOWN[$var]=1
 done
 declare -A ASKED=()
-declare -a OTHER_LIST=()
+declare -a OTHERS=()
+function Append() {
+  var=$1
+  if [[ -z $1 ]]; then
+    eval "$1=$2"
+  else
+    eval "$1+=' $2'"
+  fi
+}
 function AddOpt() {
   for v in "$@"; do
     if [[ -z ${ASKED[$v]} && -z ${IS_KNOWN[$v]} ]]; then
-      OTHER_LIST+=( $v )
+      OTHERS+=( $v )
     fi
     ASKED[$v]=1
   done
@@ -136,19 +148,35 @@ while [[ $# != 0  ]]; do
     SCC_DEBUG=1
     AddOpt SCC_DEBUG
   elif [[ "$1" =~ ^--?dump$ ]]; then
-    DUMP=1
+    dump=1
   elif [[ "$1" =~ ^--?opts$ ]]; then
-    SHOWOPTS=1
+    showopts=1
   elif [[ "$1" =~ ^-n$ ]]; then
-    export NOTREALLY="$1"
+    NOTREALLY=1
     AddOpt NOTREALLY
+  elif [[ "$1" =~ ^--?(gcc|gnu)$ ]]; then
+    AddOpt CXX CC
+    CXX=g++
+    CC=gcc
+  elif [[ "$1" =~ ^--?(clang|llvm)$ ]]; then
+    AddOpt CXX CC
+    CXX=clang++
+    CC=clang
+  elif [[ "$1" =~ ^-std=c++.* ]]; then
+    val=$(echo "$1"|sed -e 's/^-std=c++//')
+    AddOpt CPPSTD
+    CPPSTD=$val
+  elif [[ "$1" =~ ^-std=c.* ]]; then
+    val=$(echo "$1"|sed -e 's/^-std=c//')
+    AddOpt CSTD
+    CSTD=$val
   elif [[ "$1" =~ ^-W.* ]]; then
     opt="$1"
-    WARN+=" $opt"
+    Append WARN "$opt"
     AddOpt WARN
   elif [[ "$1" =~ ^-D.* ]]; then
     opt="$1"
-    DEFS+=" $opt"
+    Append DEFS "$opt"
     AddOpt DEFS
   elif [[ "$1" =~ ^-I.* ]]; then
     if [[ "$1" == "-I" ]]; then
@@ -169,7 +197,7 @@ while [[ $# != 0  ]]; do
     else
       opt="$1"
     fi
-    LIBD+=" $opt"
+    Append LIBD "$opt"
     AddOpt LIBD
   elif [[ "$1" =~ ^-l.* ]]; then
     if [[ "$1" == "-l" ]]; then
@@ -178,17 +206,28 @@ while [[ $# != 0  ]]; do
     else
       opt="$1"
     fi
-    LIBS+=" $opt"
+    Append LIBS "$opt"
     AddOpt LIBS
   elif [[ "$1" =~ ^--nostrict$ ]]; then
     STRICT=0
+    AddOpt STRICT
+  elif [[ "$1" =~ ^--nocolor$ ]]; then
+    NOCOLOR=1
   elif [[ "$1" =~ ^[a-z]+$ ]]; then
-    TARG+=" $1"
-  elif [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]+= ]]; then
+    Append TARG "$1"
+  elif [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]*= ]]; then
     var=$(echo "$1"|sed -e 's/=.*//')
-    val=$(echo "$1"|sed -e 's/^[^=]+=//')
+    val=$(echo "$1"|sed -e 's/^[^=][^=]*=//')
     AddOpt $var
-    $(eval '$var="$val"')
+    eval $var="$val"
+  elif [[ "$1" =~ .+[.][^./]+$ ]]; then
+    if [[ -r "$1" ]]; then
+      Append SRCS "$1"
+      AddOpt SRCS
+    else
+      echo "ERROR: Source file unreadable '$1'" 1>&2
+      let ++ERRORS
+    fi
   else
     echo "ERROR: Unknown option '$1'" 1>&2
     let ++ERRORS
@@ -208,12 +247,6 @@ if [[ "$TARG" == "" ]]; then
   TARG=run
 fi
 
-# Modifications
-if [[ "$STRICT" != 1 ]]; then
-  WARN+=" -Wno-unused-parameter"
-  AddOpt WARN
-fi
-
 # Create OPTS
 for var in ${KNOWN_LIST[@]}; do
   if [[ ${ASKED[$var]} == 1 ]]; then
@@ -221,22 +254,30 @@ for var in ${KNOWN_LIST[@]}; do
     OPTS+=" $var='$val'"
   fi
 done
-for var in ${OTHER_LIST[@]}; do
+for var in ${OTHERS[@]}; do
   val="$(eval 'echo $'$var)"
   OPTS+=" $var='$val'"
 done
 
-# Dump
-if [[ "$DUMP" == 1 ]]; then
-  echo "OTHER_LIST=$OTHER_LIST"
+# Dump for debugging this script
+if [[ "$dump" == 1 ]]; then
+  printf "Dumping compile script internals:"
   for opt in ${OPTS[@]}; do
-    echo "  >$opt<"
+    if [[ $opt =~ ^[A-Z][A-Za-z0-9_]*= ]]; then
+      printf "\n  %s" "$opt"
+    else
+      printf "%s" " $opt"
+    fi
   done
+  printf "\n";
+  printf "  TARG=%s\n"   "$TARG"
+  printf "  OTHERS=%s\n" "$OTHERS"
+  printf "#--------------------\n"
   exit 0
 fi
 
 # Show options if requested
-if [[ "$SHOWOPTS" == 1 ]]; then
+if [[ "$showopts" == 1 ]]; then
   make -f $SCC_APPS/make/Makefile.defs $OPTS opts
 fi
 
