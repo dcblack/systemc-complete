@@ -11,24 +11,24 @@ esac
 
 alias  cls='clear'
 alias  ls='ls -ABCF --color'
+alias  tree='tree -ACF'
 alias  m='less'
 export LESS='afrMRXj4x4'
 
+export PROJ_ROOT="$HOME/work"
+export BOOST_HOME=/usr/include/boost
+export SCC_APPS=/apps
+export SYSTEMC_HOME=$SCC_APPS/systemc
+export SCC_HOME=$SCC_APPS/scc
+export CCI_HOME=$SCC_APPS/cci
+export LD_LIBRARY_PATH=$SYSTEMC_HOME/lib
+export TEMPLATEPATH=/home/sc_user/work/templates:$SCC_APPS/sc-templates
+
 # Setup path
-PATH=/apps/bin:${PATH}
+PATH=$SCC_APPS/bin:${PATH}
 if [[ -d "$HOME/bin" ]]; then
   PATH="$HOME/bin":${PATH}
 fi
-export PROJ_ROOT="$HOME/work"
-export BOOST_HOME=/usr/include/boost
-export SYSTEMC_HOME=/apps/systemc
-export CCI_HOME=/apps/cci
-export LD_LIBRARY_PATH=$SYSTEMC_HOME/lib
-export TEMPLATEPATH=/home/sc_user/work/templates:/apps/sc-templates
-
-# Setup vimrc
-mkdir -p "$HOME/.vim"
-rsync -au /apps/.vim "$HOME/"
 
 # Allow for overrides
 if [[ -x "$HOME/.bashrc" ]]; then
