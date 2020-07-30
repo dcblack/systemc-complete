@@ -117,13 +117,13 @@ our
 , $kind
 , @name
 , $name
-, %REPL
-, %USED
-, %DFND # source of definitions
+, %REPL # placeholder => replacement text
+, %USED # placeholder => number of times replacement occurred/used
+, %DFND # placeholder => source of definitions
 , %FS
-, %CMND_LN
-, @PRECIOUS
-, @REQUIRE
+, %CMND_LN # placeholder => defined via command-line (as opposed to defaults or from file)
+, @PRECIOUS # placeholders that are builtin and may not be redefined
+, @REQUIRE # expression that must be satisfied before allowing use of template
 , @WARN
 , %ALIAS
 , %SAILA # reverse mapping
@@ -218,14 +218,17 @@ sub REPORT_INFO { # print INFO message to stdout & log if open <<<2
 
 ###############################################################################
 sub REPORT_DEBUG { # print DEBUG message to stdout & log if open <<<2
-  # USAGE: &REPORT_INFO(MESSAGE...); # use sprintf within if needed
+  # USAGE: &REPORT_DEBUG(__LINE__,MESSAGE...); # use sprintf within if needed
   return unless defined $OPT{-debug};
+  my $lno = '';
+  $lno = shift @_ if $_[0] =~ m{^\d+$};
   my @msgs = @_;
   for my $msg (@msgs) {
     next unless defined $msg;
     chomp $msg;
     my $fmtd;
-    $fmtd = 'DEBUG: ' unless $msg =~ m{^DEBUG: };
+    $fmtd = "DEBUG: " unless $msg =~ m{^DEBUG: };
+    $fmtd =~ s{:}{($lno):} if $lno ne '';
     $fmtd .= sprintf("%s\n",$msg);
 #   if ($openlog) {
 #     print STDLOG $fmtd;
@@ -737,10 +740,10 @@ sub prefix {
   } elsif ($fn eq 'qx') {
     $text =~ s/:/ /g;
     my $qx = '$'.qq{text = qx{$text};};
-    REPORT_DEBUG("qx: eval $qx");
+    REPORT_DEBUG(__LINE__,"qx: eval $qx");
     eval $qx;
     chomp $text;
-    REPORT_DEBUG("qx: text=$text");
+    REPORT_DEBUG(__LINE__,"qx: text=$text");
   } elsif ($fn eq 'ap') {
     $text =~ s{[.]app/$}{};
     $text =~ s{.*/}{};
@@ -850,6 +853,7 @@ sub check_default { #<<<2
 sub incr_USED {
   my $ph = shift @_;
   $ph =~ s{.*:}{}g;
+  REPORT_DEBUG(__LINE__,"Used $ph");
   ++$USED{$ph};
 }#endsub incr_USED
 
@@ -993,7 +997,7 @@ sub replace_placeholder { #<<<2
       }#endif
       goto SKIP;
     }#endif
-    &incr_USED($fph) if exists $USED{$fph};
+    &incr_USED($fph);
     if (substr($ph,0,1) eq '<' or $fn eq 'include') {
       #------------------------------------------------------------------------
       # Include file <<<4
@@ -1100,7 +1104,7 @@ sub replace_placeholder { #<<<2
       $line =~ s/$t/$repl/;
       ++$repl_c;
     } elsif ($fn eq 'qx') {
-      REPORT_DEBUG("Found qx in $ph");
+      REPORT_DEBUG(__LINE__,"Found qx in $ph");
       $ph =~ s/^$fn://;
       my $repl = &prefix($fn,$ph);
       $line =~ s/$t/$repl/;
@@ -1335,13 +1339,13 @@ sub addargs { # Parses command-line arguments <<<2
       } else {
         $SAILA{$alias_value} = [ $alias_name ];
       }
-      &REPORT_DEBUG("Defined alias $the_alias");
+      &REPORT_DEBUG(__LINE__,"Defined alias $the_alias");
     #--------------------------------------------------------------------------
     # Debug
     #--------------------------------------------------------------------------
     } elsif ($arg eq '--debug') {
       $OPT{-debug} = 1;
-      &REPORT_DEBUG("Parsing command-line");
+      &REPORT_DEBUG(__LINE__,"Parsing command-line");
     #--------------------------------------------------------------------------
     # Default
     #--------------------------------------------------------------------------
@@ -1374,7 +1378,7 @@ sub addargs { # Parses command-line arguments <<<2
 #x        warn "Not allowed to overwrite $t -- ignored\n";
 #x        next ARG;
 #x      }#endif
-#x      push @{$DUPL{$t},$r;
+#x      push @{$DUPL{$t}},$r;
 #x    }#endif
     #--------------------------------------------------------------------------
     # Macro definition
@@ -1432,7 +1436,7 @@ sub readargs { # Parse .newrc files <<<2
   my @args = ();
   my $rctype = 'newrc';
   my $RC_FH;
-  &REPORT_DEBUG("Parsing $file");
+  &REPORT_DEBUG(__LINE__,"Parsing $file");
   open $RC_FH,q{<},"$file"
     or die "FATAL: Unable to read $file!?\n";
   while (<$RC_FH>) {
@@ -1703,7 +1707,7 @@ NAMES: for my $name (@name) {
       } elsif ($rqmt =~ m{^(\w+)=}) {
         my ($phname,$phrqmt) = ($1,$');
         if (exists $ALIAS{$phname}) {
-          &REPORT_DEBUG("Using alias $phname");
+          &REPORT_DEBUG(__LINE__,"Using alias $phname");
           $phname = $ALIAS{$phname};
         }#endif
         my $phvalue = '';
@@ -1835,7 +1839,8 @@ NAMES: for my $name (@name) {
 
 # Warn of unused templates
 for my $un (sort keys %USED) {
-  printf "WARNING: Never used provided replacement $un defined $DFND{$un}\n" unless $USED{$un} > 0 or $OPT{-quiet} or exists $OPTIONAL{$un} or $DFND{$un} =~ m{$rc};
+  printf "WARNING: Never used provided replacement $un defined $DFND{$un}\n" 
+     unless $USED{$un} > 0 or $OPT{-quiet} or exists $OPTIONAL{$un} or $DFND{$un} =~ m{$rc};
 }#endfor
 
 exit 0; # Done #<<<1
@@ -2519,13 +2524,7 @@ Results in two new files created as follows:
 
 =head1 COPYRIGHT/LICENSE
 
-Copyright (C) 2018 Doulos Inc. All rights reserved.
-
-Copyright (C) 2003-2007 ESLX Inc. All rights reserved.
-
-Copyright (C) 2009-2010 XtremeEDA Corporation. All rights reserved.
-
-Copyright (C) 2012 David C Black. All rights reserved.
+Copyright (C) 2020 David C Black. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
