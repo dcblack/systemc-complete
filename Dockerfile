@@ -1,7 +1,7 @@
 # Dockerfile
 #
 # Requires
-#   execute-only: bash 
+#   execute-only: bash
 #
 FROM ubuntu:latest
 LABEL description="SystemC-Complete - Tools to compile SystemC with GCC & Clang under Ubuntu" \
@@ -43,10 +43,10 @@ RUN apt-get -y update && apt-get -y install \
     make \
     ninja-build \
     cmake \
-    graphviz \ 
-    doxygen \ 
-    perl-doc \ 
-    python3-pip 
+    graphviz \
+    doxygen \
+    perl-doc \
+    python3-pip
 
 # Useful in an interactive context
 RUN apt-get -y update && apt-get -y install \
@@ -54,8 +54,10 @@ RUN apt-get -y update && apt-get -y install \
     silversearcher-ag \
     sudo \
     time \
+    tree \
     vim \
     wget \
+    yamllint \
     && perl -pi -e 'if( m/^root/ ) { print; s/root/sc_user/; }' /etc/sudoers
 
 
@@ -65,7 +67,7 @@ ENV APPS=/apps \
     BOLD="[01m" \
     CBLK="[30m" CRED="[31m" CGRN="[32m" CYLW="[33m" \
     CBLU="[34m" CMAG="[35m" CCYN="[36m" CWHT="[37m" \
-    NONE="[00m" 
+    NONE="[00m"
 # RED,GRN,YLW,BLU,MAG,CYN,WHT,BLK
 
 COPY apps/setup.profile $APPS/
@@ -101,10 +103,11 @@ COPY apps/include $APPS/include/
 COPY apps/cmake   $APPS/cmake/
 COPY apps/make    $APPS/make/
 COPY apps/sc-templates $APPS/sc-templates/
+COPY apps/scc     $APPS/scc/
 # WORKDIR $APPS
 # RUN git clone git@github.com:dcblack/sc-templates.git
 
-# Minor patches for aid some setup assumptions
+# Minor patches to aid some setup assumptions
 RUN echo "Set disable_coredump false" >> /etc/sudo.conf \
  && ln -s $SYSTEMC_HOME/lib $SYSTEMC_HOME/lib-linux64 \
  && ln -s $CCI_HOME/src     $CCI_HOME/include
@@ -122,6 +125,7 @@ COPY home $HOME/
 RUN chown -R $USER $APPS $HOME \
  && chgrp -R users $APPS $HOME \
  && chmod u=rwx,g+sx $APPS $HOME/bin\
+ && find $APPS -type f -name '[^.]*' ! -path '*/[.]*' -exec chmod a-w {} \; \
  && chmod g+s $HOME $HOME/bin \
  && mkdir -p $HOME/work
 
