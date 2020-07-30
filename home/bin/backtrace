@@ -1,4 +1,13 @@
 #!/usr/bin/bash
+#
+# Note: executable must not read stdin...
+
+SYNTAX="SYNTAX: backtrace [BINARY ARGS...]"
+
+if [[ "$*" =~ ^-{1,2}h(elp)?$ ]]; then
+  echo "$SYNTAX"
+  exit 0
+fi
 
 if [[ $# == 0 ]];then
   PGM="run.x"
