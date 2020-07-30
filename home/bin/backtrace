@@ -1,0 +1,29 @@
+#!/usr/bin/bash
+
+if [[ $# == 0 ]];then
+  PGM="run.x"
+else
+  PGM="$@"
+fi
+
+gdb -ex run -ex backtrace -ex quit $PGM
+
+exit
+
+if [[ -r .gdbinit ]]; then
+  mv .gdbinit .gdbinit-previous
+fi
+
+cat >.gdbinit <<EOF
+run
+backtrace
+quit
+EOF
+
+gdb "$PGM"
+
+rm .gdbinit
+
+if [[ -r .gdbinit-previous ]]; then
+  mv .gdbinit-previous .gdbinit
+fi
