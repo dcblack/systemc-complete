@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-SYNTAX="SYNTAX: clean [-exe|-logs|-all] [DIRLIST]"
+SYNTAX="SYNTAX: clean [-exe|-logs|-all|-everything] [DIRLIST]"
 
 function Realpath () {
   test -z "$*" && echo "" || \
@@ -12,6 +12,8 @@ declare -a DIRS
 V='-v'
 let i=0
 OPTS=
+CMND="rm"
+WHAT="intermediates"
 while [[ $# -gt 0 ]]; do
   if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
     echo $SYNTAX
@@ -21,11 +23,19 @@ while [[ $# -gt 0 ]]; do
   elif [[ "$1" =~ ^-{1,2}v(erbose)?$ ]]; then
     V='-v'
   elif [[ "$1" =~ ^-{1,2}a(ll)$ ]]; then
+    WHAT="all"
     OPTS=A
   elif [[ "$1" =~ ^-{1,2}exe$ || "$1" =~ ^-x$ ]]; then
+    WHAT+=" + executables"
     OPTS+=X
   elif [[ "$1" =~ ^-{1,2}logs$ ]]; then
+    WHAT+=" + logfiles"
     OPTS+=L
+  elif [[ "$1" =~ ^-{1,2}everything$ ]]; then
+    WHAT="everything"
+    OPTS=AXL
+  elif [[ "$1" =~ ^-{1,2}n(otreally)$ ]]; then
+    CMND="echo '# rm '"
   elif [[ "$1" =~ ^- ]]; then
     echo "ERROR: Unknown option '$1'." 1>&2
     exit 1
@@ -39,17 +49,20 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 if [[ ${#DIR[@]} == 0 ]]; then
-  DIR[1]=.
+  DIRS[1]=$(Realpath .)
 fi
 
+echo "Cleaning $WHAT in ${DIRS[@]}"
 for DIR in ${DIRS[@]}; do
-  find "$DIR" -name '*.[doP]' -exec rm $V {} \;
-  if   [[ $COMMAND =~ L ]]; then
-    find "$DIR" -type f -name '*.log' -exec rm $V {} \;
-  elif [[ $OPTS =~ X ]]; then
-    find "$DIR" -type f -name '*.x' -exec rm $V {} \;
-  elif [[ $OPTS =~ A ]]; then
-    find "$DIR" -type f -name '*.log' -exec rm $V {} \;
-    find "$DIR" -type d -name build -exec rm $V -fr {} \;
+  find "$DIR" -name '*.[doP]' -exec $CMND $V {} \;
+  if   [[ $COMMAND =~ .*L.* ]]; then
+    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \;
+  fi
+  if [[ $OPTS =~ .*X.* ]]; then
+    find "$DIR" -type f -name '*.x' -exec $CMND $V {} \;
+  fi
+  if [[ $OPTS =~ .*A.* ]]; then
+    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \;
+    find "$DIR" -type d -name build -exec $CMND $V -fr {} \;
   fi
 done
