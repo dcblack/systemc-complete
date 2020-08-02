@@ -1,0 +1,111 @@
+#!bash
+#
+# Syntax: regress [-nocolor] [-dev] [list_of_tests]
+
+REGRESS_DIR="$SCC/regression_tests"
+REGRESS_LOG="regress.log"
+
+if [[ "$1" =~ ^-{1,2}nocolor$ ]]; then
+  shift
+else
+export \
+    BOLD="[01m" \
+    CBLK="[30m" CRED="[31m" CGRN="[32m" CYLW="[33m" \
+    CBLU="[34m" CMAG="[35m" CCYN="[36m" CWHT="[37m" \
+    NONE="[00m"
+fi
+
+if [[ -z ${SCC} || ! -d $REGRESS_DIR ]]; then
+  echo "${CRED}${BOLD}ERROR: Environment variable SCC missing or incorrect.${NONE}" 1>&2
+  exit 1
+fi
+
+if [[ "$1" =~ ^-dev$ ]]; then
+  export REGRESS_DEV=1
+  shift
+else
+  export REGRESS_DEV=0
+fi
+
+cd $REGRESS_DIR
+echo "${BOLD}Starting regression test at $(date)${NONE}" | tee $REGRESS_LOG
+(
+if [[ $# == 0 ]]; then
+  LIST="$(echo *)"
+  EXPECTED=0
+else
+  LIST="$@"
+  EXPECTED=$#
+fi
+let TESTED=0 WARNINGS=0 ERRORS=0
+for DIR in $LIST; do
+  test -d $DIR || continue
+  let ++TESTED
+  if [[ ! -d $DIR ]]; then continue; fi
+  echo -n ${CGRN}${BOLD}
+  scc ruler; scc header -uc $DIR
+  echo -n ${NONE}
+  pushd $DIR
+
+  # Run the test
+  if [[ -r run.sh && -x run.sh ]]; then
+    ./run.sh
+    if [[ $? == 0 ]]; then
+      echo "${CGRN}${BOLD}SCRIPT GOOD${NONE}"
+    else
+      echo "${CRED}${BOLD}SCRIPT FAIL${NONE}"
+      let ++ERRORS
+    fi
+  else
+    scc compile
+  fi
+
+  let VALIDATIONS=0
+  # Validate the results if script present
+  if [[ -r validate.sh && -x validate.sh ]]; then
+    let ++VALIDATIONS
+    ./validate.sh
+    if [[ $? == 0 ]]; then
+      echo "${CGRN}${BOLD}VALIDATED${NONE}" 
+    else
+      echo "${CRED}${BOLD}FAILED${NONE}"
+      let ++ERRORS
+    fi
+  fi
+
+  # Compare golden file if present
+  if [[ -r run.golden && -f run.golden ]]; then
+    let ++VALIDATIONS
+    diff run.golden build/log.dir/run.log
+    if [[ $? == 0 ]]; then
+      echo "${CGRN}${BOLD}GOLDEN MATCHED${NONE}"
+    else
+      echo "${CRED}${BOLD}MISMATCH${NONE}"
+      let ++ERRORS
+    fi
+  fi
+
+  if [[ $VALIDATIONS == 0 ]]; then
+    let ++WARNINGS
+    echo "${CYLW}${BOLD}WARNING: No validations performed${NONE}"
+  fi
+
+  if [[ $REGRESS_DEV == 0 ]]; then
+    scc clean -q -everything
+  fi
+  popd
+done
+if [[ $EXPECTED != 0 && $EXPECTED != $TESTED ]]; then
+  printf "${CRED}${BOLD}ERROR: Expected %d but only tested %d ${NONE}\n" $EXPECTED $TESTED
+fi
+scc ruler
+printf "%d tests attempted\n%d warnings\n%d errors\n" $TESTED $WARNINGS $ERRORS
+if [[ $ERRORS == 0 ]]; then
+  printf "${CGRN}${BOLD}ALL TESTS PASSED"
+else
+  printf "${CRED}${BOLD}SOME FAILURES"
+fi
+printf "${NONE}\n"
+) 2>&1 | tee -a $REGRESS_LOG
+
+printf "Regression test completed -- Results saved in %s\n" "$(pwd)/$REGRESS_LOG"

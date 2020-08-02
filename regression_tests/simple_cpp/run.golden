@@ -1,0 +1,3 @@
+[32m# Running[00m
+% ./run.x  2>&1 | tee -a build/log.dir/run.log
+Answer: 42

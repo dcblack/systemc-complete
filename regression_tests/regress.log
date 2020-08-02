@@ -1,0 +1,75 @@
+Starting regression test at Sat Aug  1 22:12:21 CDT 2020
+[32m[01m________________________________________________________________________________
+#      ####  #     # #####         ####  #####  #####  
+#     #    # ##    # #            #    # #    # #    # 
+#     #    # # #   # #            #      #    # #    # 
+#     #    # #  #  # #####        #      #####  #####  
+#     #    # #   # # #            #      #      #      
+#     #    # #    ## #            #    # #      #      
+#####  ####  #     # ##### ######  ####  #      #      
+[00m/Users/dcblack/Docker/systemcc/regression_tests/lone_cpp
+~/Docker/systemcc/regression_tests/lone_cpp ~/Docker/systemcc/regression_tests
+% make -f /apps/make/Makefile.defs  run
+Missing 'main'
+make: *** [/apps/make/Makefile.defs:231: run.x] Error 1
+Success
+[32m[01mVALIDATED[00m
+Cleaning everything in /home/sc_user/work
+~/Docker/systemcc/regression_tests
+[32m[01m________________________________________________________________________________
+ ####  ### #     # #####  #     #####         ####  #####  #####  
+#    #  #  ##   ## #    # #     #            #    # #    # #    # 
+#       #  # # # # #    # #     #            #      #    # #    # 
+ ####   #  #  #  # #####  #     #####        #      #####  #####  
+     #  #  #     # #      #     #            #      #      #      
+#    #  #  #     # #      #     #            #    # #      #      
+ ####  ### #     # #      ##### ##### ######  ####  #      #      
+[00m/Users/dcblack/Docker/systemcc/regression_tests/simple_cpp
+~/Docker/systemcc/regression_tests/simple_cpp ~/Docker/systemcc/regression_tests
+% make -f /apps/make/Makefile.defs  run
+[32m# Compiling build/src.dir/func.cpp[00m
+set -o pipefail; clang++ -std=c++17 --pedantic -Wall -Wextra  -O0 -g  -DSC_CPLUSPLUS=201703L -I . -MMD -o "build/obj.dir/func.o" -c build/src.dir/func.cpp 2>&1 | tee -a build/log.dir/compile.log
+[32m# Compiling build/src.dir/main.cpp[00m
+set -o pipefail; clang++ -std=c++17 --pedantic -Wall -Wextra  -O0 -g  -DSC_CPLUSPLUS=201703L -I . -MMD -o "build/obj.dir/main.o" -c build/src.dir/main.cpp 2>&1 | tee -a build/log.dir/compile.log
+[32m# Linking run.x[00m
+set -o pipefail; clang++   -o run.x build/obj.dir/func.o build/obj.dir/main.o 2>&1 | c++filt | tee -a build/log.dir/link.log
+[32m# Running[00m
+env   LD_LIBRARY_PATH=:/apps/systemc/lib \
+    ./run.x  2>&1 | tee -a build/log.dir/run.log
+Answer: 42
+[32m[01mGOLDEN MATCHED[00m
+Cleaning everything in /home/sc_user/work
+~/Docker/systemcc/regression_tests
+[32m[01m________________________________________________________________________________
+ ####  ### #     # #####  #     #####         ####  #     #  ####  ####### ##### #     #  ####  
+#    #  #  ##   ## #    # #     #            #    #  #   #  #    #    #    #     ##   ## #    # 
+#       #  # # # # #    # #     #            #        # #   #         #    #     # # # # #      
+ ####   #  #  #  # #####  #     #####         ####     #     ####     #    ##### #  #  # #      
+     #  #  #     # #      #     #                 #    #         #    #    #     #     # #      
+#    #  #  #     # #      #     #            #    #    #    #    #    #    #     #     # #    # 
+ ####  ### #     # #      ##### ##### ######  ####     #     ####     #    ##### #     #  ####  
+[00m/Users/dcblack/Docker/systemcc/regression_tests/simple_systemc
+~/Docker/systemcc/regression_tests/simple_systemc ~/Docker/systemcc/regression_tests
+% make -f /apps/make/Makefile.defs  run
+[32m# Compiling build/src.dir/func.cpp[00m
+set -o pipefail; clang++ -std=c++17 --pedantic -Wall -Wextra  -O0 -g  -DSC_CPLUSPLUS=201703L -I . -I/apps/systemc/include -MMD -o "build/obj.dir/func.o" -c build/src.dir/func.cpp 2>&1 | tee -a build/log.dir/compile.log
+[32m# Compiling build/src.dir/main.cpp[00m
+set -o pipefail; clang++ -std=c++17 --pedantic -Wall -Wextra  -O0 -g  -DSC_CPLUSPLUS=201703L -I . -I/apps/systemc/include -MMD -o "build/obj.dir/main.o" -c build/src.dir/main.cpp 2>&1 | tee -a build/log.dir/compile.log
+[32m# Linking run.x[00m
+set -o pipefail; clang++  -L/apps/systemc/lib  -lsystemc -lm -o run.x build/obj.dir/func.o build/obj.dir/main.o 2>&1 | c++filt | tee -a build/log.dir/link.log
+[32m# Running[00m
+env   LD_LIBRARY_PATH=/apps/systemc/lib:/apps/systemc/lib \
+    ./run.x  2>&1 | tee -a build/log.dir/run.log
+
+        SystemC 2.3.4_pub_rev_20191203-Accellera --- Jul 29 2020 05:32:04
+        Copyright (c) 1996-2019 by all Contributors,
+        ALL RIGHTS RESERVED
+Answer: 42
+[32m[01mGOLDEN MATCHED[00m
+Cleaning everything in /home/sc_user/work
+~/Docker/systemcc/regression_tests
+________________________________________________________________________________
+3 tests attempted
+0 warnings
+0 errors
+[32m[01mALL TESTS PASSED[00m

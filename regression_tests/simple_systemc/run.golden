@@ -1,0 +1,7 @@
+[32m# Running[00m
+% ./run.x  2>&1 | tee -a build/log.dir/run.log
+
+        SystemC 2.3.4_pub_rev_20191203-Accellera --- Jul 29 2020 05:32:04
+        Copyright (c) 1996-2019 by all Contributors,
+        ALL RIGHTS RESERVED
+Answer: 42
