@@ -28,7 +28,7 @@ function Alternate() {
 SCC_RC="$HOME/.sccrc"
 SCC_USER=sc_user
 SCC_IMAGE=systemcc
-SCC_COMMAND=""
+SCC_COMMAND=''
 SCC_MOUNTPT=$(pwd)
 SCC_HOMEDIR=/home/$SCC_USER
 SCC_ENVFILE="$(dirname $(dirname $(Realpath $0)))/etc/env.list"
@@ -110,12 +110,14 @@ if [[ $SCC_VERBOSE == 1 ]]; then
   printf "\nSCC_MOUNTPT=%s\nSCC_WORKDIR=%s\n\n" "$SCC_MOUNTPT" "$SCC_WORKDIR"
 fi
 
-if [[ $# == 0 && $SCC_COMMAND == "" ]]; then
+if [[ $# == 0 && -z $SCC_COMMAND ]]; then
   Debug "Interactive"
   ( test $SCC_VERBOSE -gt 0 && set -x; $DOCKER run --rm -it -v "$SCC_MOUNTPT:$SCC_HOMEDIR/work" --env SCC_WORKDIR --env-file "$SCC_ENVFILE" "$SCC_IMAGE" bash -l)
 else                                                                           
   if [[ $# != 0 ]]; then
-    SCC_COMMAND="$*";
+    for arg in "$@"; do
+      SCC_COMMAND+="'$arg' ";
+    done
   fi
   if [[ $BACKGROUND == 1 ]]; then
     if [[ $DEBUG == 1 ]]; then
