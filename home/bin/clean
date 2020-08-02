@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
     WHAT="everything"
     OPTS=AXL
   elif [[ "$1" =~ ^-{1,2}n(otreally)$ ]]; then
-    CMND="echo '# rm '"
+    CMND="echo '# $CMND'"
   elif [[ "$1" =~ ^- ]]; then
     echo "ERROR: Unknown option '$1'." 1>&2
     exit 1
@@ -54,15 +54,15 @@ fi
 
 echo "Cleaning $WHAT in ${DIRS[@]}"
 for DIR in ${DIRS[@]}; do
-  find "$DIR" -name '*.[doP]' -exec $CMND $V {} \;
+  find "$DIR" -name '*.[doP]' -exec $CMND $V {} \; 2>/dev/null
   if   [[ $COMMAND =~ .*L.* ]]; then
-    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \;
+    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \; 2>/dev/null
   fi
   if [[ $OPTS =~ .*X.* ]]; then
-    find "$DIR" -type f -name '*.x' -exec $CMND $V {} \;
+    find "$DIR" -type f -name '*.x' -exec $CMND $V {} \; 2>/dev/null
   fi
   if [[ $OPTS =~ .*A.* ]]; then
-    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \;
-    find "$DIR" -type d -name build -exec $CMND $V -fr {} \;
+    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \; 2>/dev/null
+    find "$DIR" -type d -name build -exec $CMND $V -fr {} \; 2>/dev/null
   fi
 done
