@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
-HELP=<<'EOF'
+#{
+HELP=<<'HELP_TEXT'
 ## SYNOPSIS
 
 Simple compile
@@ -15,7 +16,8 @@ compile [OPTIONS] [TARGET] [SOURCES]
 ## OPTIONS
 
  + `-W{flag} -D{name}={value} -I{dir} -L{dir} -l{lib} -help`
- + `--opts` shows values of all options just prior to execution
+ + `-args=STRING` sets ARGS=STRING
+ + `-opts` shows values of all options just prior to execution
  + `-llvm` or -gnu select the compiler tools (aka -clang or -gcc)
  + `-std=c++NN` selects the appropriate standard for C++ compilation
  + `-std=cNN` selects the appropriate standard for C compilation
@@ -35,7 +37,7 @@ Other targets are available including:
 Target | Description
 ------ | -----------
 clean  | Removes generated files (including log files)
-opts   | Same as -opt option
+opts   | Same as -opt option except it will bypass compile, link and run unless you specify one of those targets in addition
 
 ## VARIABLES
 
@@ -45,6 +47,7 @@ The following are occasionally modified:
 
 Option | Description
 ------ | -----------
+ARGS   | Command-line arguments passed to the executable
 COPT   | Compiler optimization level (default O0)
 
 The following are unusual to specify or modify. Many can be modified with ordinary command-line options above.
@@ -108,7 +111,13 @@ compile LOGS='compile.log link.log' clean
 
 DO perl fgrep sed basename mkdir test
 
-EOF
+HELP_TEXT
+#}
+
+function Realpath () {
+  test -z "$*" && echo "" || \
+  perl '-MCwd(abs_path)' -le "print abs_path(qq($*))"
+}
 
 let ERRORS=0
 declare -a KNOWN_LIST=(
@@ -122,15 +131,22 @@ for var in ${KNOWN_LIST[@]}; do
 done
 declare -A ASKED=()
 declare -a OTHERS=()
+
 function Append() {
-  var=$1
-  if [[ -z $1 ]]; then
-    eval "$1=$2"
+  local var=$1
+  shift
+  local val="$*"
+  local old
+  if [[ -z $var ]]; then
+    eval "$var='$val'"
   else
-    eval "$1+=' $2'"
+    eval "old='$var'"
+    eval "$var='$old $val'"
   fi
 }
+
 function AddOpt() {
+  local v
   for v in "$@"; do
     if [[ -z ${ASKED[$v]} && -z ${IS_KNOWN[$v]} ]]; then
       OTHERS+=( $v )
@@ -216,10 +232,10 @@ while [[ $# != 0  ]]; do
   elif [[ "$1" =~ ^[a-z]+$ ]]; then
     Append TARG "$1"
   elif [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]*= ]]; then
-    var=$(echo "$1"|sed -e 's/=.*//')
-    val=$(echo "$1"|sed -e 's/^[^=][^=]*=//')
+    var=$(echo $1|sed -e 's/=.*//')
+    val="$(echo $1|sed -e 's/^[^=][^=]*=//')"
     AddOpt $var
-    eval $var="$val"
+    eval "$var='$val'"
   elif [[ "$1" =~ .+[.][^./]+$ ]]; then
     if [[ -r "$1" ]]; then
       Append SRCS "$1"
@@ -248,20 +264,22 @@ if [[ "$TARG" == "" ]]; then
 fi
 
 # Create OPTS
+declare -a OPTS=()
 for var in ${KNOWN_LIST[@]}; do
   if [[ ${ASKED[$var]} == 1 ]]; then
     val="$(eval 'echo $'$var)"
-    OPTS+=" $var='$val'"
+    OPTS+="$var='$val'"
   fi
 done
 for var in ${OTHERS[@]}; do
   val="$(eval 'echo $'$var)"
-  OPTS+=" $var='$val'"
+  OPTS+="$var='$val'"
 done
 
 # Dump for debugging this script
 if [[ "$dump" == 1 ]]; then
   printf "Dumping compile script internals:"
+  printf "OPTS={%s}\n" "$OPTS"
   for opt in ${OPTS[@]}; do
     if [[ $opt =~ ^[A-Z][A-Za-z0-9_]*= ]]; then
       printf "\n  %s" "$opt"
@@ -276,12 +294,21 @@ if [[ "$dump" == 1 ]]; then
   exit 0
 fi
 
+# Create script file
+TIMESTAMP=$(date '+%Y%m%d%H%M%S')
+COMPILE_SCRIPT="build/script.dir/compile-${TIMESTAMP}.sh"
+mkdir -p $(dirname ${COMPILE_SCRIPT})
+echo '#!'$(Realpath $SHELL) >$COMPILE_SCRIPT
+echo '' >>$COMPILE_SCRIPT
+
 # Show options if requested
 if [[ "$showopts" == 1 ]]; then
-  make -f $SCC_APPS/make/Makefile.defs $OPTS opts
+  echo "make -f $SCC_APPS/make/Makefile.defs ${OPTS@} opts" >> $COMPILE_SCRIPT
 fi
 
-echo "% make -f $SCC_APPS/make/Makefile.defs $OPTS $TARG"
-        make -f $SCC_APPS/make/Makefile.defs $OPTS $TARG
+echo "% make -f $SCC_APPS/make/Makefile.defs ${OPTS[@]} $TARG"
+echo   "make -f $SCC_APPS/make/Makefile.defs ${OPTS[@]} $TARG" >> $COMPILE_SCRIPT
+
+( source $COMPILE_SCRIPT )
 
 exit $?
