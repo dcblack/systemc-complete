@@ -4,14 +4,16 @@ SystemC Complete
 About this directory
 --------------------
 
-This is the source code for the systemc-complete scripts and docker files.
+This is the source code for the Systemc-Complete scripts and docker files.
+
+WARNING: This is a project under development and not quite ready for full deployment.
 
 Tested platforms
 ----------------
 
 This has been tested on the following platforms:
 
-+ Mac OS X 10.15.5 (Catalina)
++ Mac OS X 10.15.6 (Catalina)
 
 Please send feedback so we can know your success and add to this list, we will credit you.
 
@@ -35,6 +37,12 @@ Once the tools are in place, you should be able to build this with a simple comm
 ```bash
 git checkout works #< unless you want to use the latest (possibly broken) version
 make image
+```
+
+You should also check out the documentation associated with the `makefile` with the command:
+
+```bash
+make help
 ```
 
 How to use
@@ -130,7 +138,7 @@ int sc_main( int argc, char* argv[] )
 Run as follows...
 
 ```bash
-scc qsc
+scc compile
 ```
 
 ### SystemC sources described by Makefile
@@ -228,7 +236,7 @@ Files
 |   |   |-- filter-mlog      #< Filters log files (used by build)
 |   |   |-- filter-sclog     #< Filters SystemC log files (used by build)
 |   |   |-- header           #< Creates block text (used by build)
-|   |   |-- qsc              #< Quick and dirty systemc compile (not intelligent)
+|   |   |-- compile          #< Compiles, links and runs programs using Makefile automation built into the docker image
 |   |   `-- ruler            #< Echoes horizontal line to aid visibility (used by build)
 |   `-- setup.profile        #< User setup
 `-- setup.profile            #< Source to add local ./bin to $PATH
