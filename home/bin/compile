@@ -137,10 +137,10 @@ function Append() {
   shift
   local val="$*"
   local old
-  if [[ -z $var ]]; then
+  eval "old=\"\$$var\""
+  if [[ -z $old ]]; then
     eval "$var='$val'"
   else
-    eval "old='$var'"
     eval "$var='$old $val'"
   fi
 }
@@ -158,13 +158,13 @@ function AddOpt() {
 # Parse supplied options (override defaults)
 while [[ $# != 0  ]]; do
   if [[ "$1" =~ ^--?h(elp)?$ ]]; then
-    echo $HELP
+    printf "%s\n" $HELP
     exit 0
   elif [[ "$1" =~ ^--?debug$ ]]; then
     SCC_DEBUG=1
     AddOpt SCC_DEBUG
   elif [[ "$1" =~ ^--?dump$ ]]; then
-    dump=1
+    dump=1; # Internal debugging
   elif [[ "$1" =~ ^--?opts$ ]]; then
     showopts=1
   elif [[ "$1" =~ ^-n$ ]]; then
@@ -268,13 +268,30 @@ declare -a OPTS=()
 for var in ${KNOWN_LIST[@]}; do
   if [[ ${ASKED[$var]} == 1 ]]; then
     val="$(eval 'echo $'$var)"
-    OPTS+="$var='$val'"
+    OPTS+=" $var='$val'"
   fi
 done
 for var in ${OTHERS[@]}; do
   val="$(eval 'echo $'$var)"
-  OPTS+="$var='$val'"
+  OPTS+=" $var='$val'"
 done
+
+# Create script file
+TIMESTAMP=$(date '+%Y%m%d%H%M%S')
+COMPILE_SCRIPT="build/script.dir/compile-${TIMESTAMP}.sh"
+mkdir -p $(dirname ${COMPILE_SCRIPT})
+printf "#!%s\n" "$(Realpath $SHELL)" >$COMPILE_SCRIPT
+printf "#\n# Created %s\n\n" "$(date)" >>$COMPILE_SCRIPT
+
+# Show options if requested
+if [[ "$showopts" == 1 ]]; then
+  printf "make -f %s %s opts\n" "$SCC_APPS/make/Makefile.defs" "${OPTS[@]}" >> $COMPILE_SCRIPT
+fi
+
+printf "%% make -f %s %s %s\n" "$SCC_APPS/make/Makefile.defs" "${OPTS[@]}" "$TARG"
+printf    "make -f %s %s %s\n" "$SCC_APPS/make/Makefile.defs" "${OPTS[@]}" "$TARG" >> $COMPILE_SCRIPT
+
+printf "\n# The end\n" >>$COMPILE_SCRIPT
 
 # Dump for debugging this script
 if [[ "$dump" == 1 ]]; then
@@ -290,24 +307,12 @@ if [[ "$dump" == 1 ]]; then
   printf "\n";
   printf "  TARG=%s\n"   "$TARG"
   printf "  OTHERS=%s\n" "$OTHERS"
-  printf "#--------------------\n"
+  D10="----------" D80="$D10$D10$D10$D10$D10$D10$D10$D10"
+  printf "%80.80s\n" "#-- $COMPILE_SCRIPT $D80"
+  cat $COMPILE_SCRIPT
+  printf "#%80.80s\n" "$D80"
   exit 0
 fi
-
-# Create script file
-TIMESTAMP=$(date '+%Y%m%d%H%M%S')
-COMPILE_SCRIPT="build/script.dir/compile-${TIMESTAMP}.sh"
-mkdir -p $(dirname ${COMPILE_SCRIPT})
-echo '#!'$(Realpath $SHELL) >$COMPILE_SCRIPT
-echo '' >>$COMPILE_SCRIPT
-
-# Show options if requested
-if [[ "$showopts" == 1 ]]; then
-  echo "make -f $SCC_APPS/make/Makefile.defs ${OPTS@} opts" >> $COMPILE_SCRIPT
-fi
-
-echo "% make -f $SCC_APPS/make/Makefile.defs ${OPTS[@]} $TARG"
-echo   "make -f $SCC_APPS/make/Makefile.defs ${OPTS[@]} $TARG" >> $COMPILE_SCRIPT
 
 ( source $COMPILE_SCRIPT )
 

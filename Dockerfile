@@ -25,6 +25,8 @@ RUN apt-get -y update && apt-get -y install \
     bison \
     cgdb \
     clang \
+    clang-tidy \
+    clang-tools \
     cppcheck \
     doxygen \
     flex \
