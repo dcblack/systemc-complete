@@ -277,11 +277,12 @@ for var in ${OTHERS[@]}; do
 done
 
 # Create script file
-TIMESTAMP=$(date '+%Y%m%d%H%M%S')
+TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 COMPILE_SCRIPT="build/script.dir/compile-${TIMESTAMP}.sh"
 mkdir -p $(dirname ${COMPILE_SCRIPT})
 printf "#!%s\n" "$(Realpath $SHELL)" >$COMPILE_SCRIPT
 printf "#\n# Created %s\n\n" "$(date)" >>$COMPILE_SCRIPT
+chmod a+rx $COMPILE_SCRIPT
 
 # Show options if requested
 if [[ "$showopts" == 1 ]]; then
