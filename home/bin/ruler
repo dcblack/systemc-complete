@@ -1,5 +1,4 @@
-#!/usr/bin/perl
-
+#!/usr/bin/env perl
 
 our $sep='_';
 our $inc = 0;

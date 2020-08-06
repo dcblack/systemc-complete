@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 SYNTAX="SYNTAX: clean [-exe|-logs|-all|-everything] [DIRLIST]"
 
@@ -56,7 +56,7 @@ echo "Cleaning $WHAT in ${DIRS[@]}"
 YMD=$(date +%Y%m%d)
 for DIR in ${DIRS[@]}; do
   find "$DIR" -name '*.[doP]' -exec $CMND $V {} \; 2>/dev/null
-  find "$DIR" -path '*/compile-$YMD*.sh' -exec $CMND $V {} \; 2>/dev/null
+  find "$DIR" -path "*/compile-$YMD*.sh" -exec $CMND $V {} \; 2>/dev/null
   if   [[ $COMMAND =~ .*L.* ]]; then
     find "$DIR" -type f -name '*.log' -exec $CMND $V {} \; 2>/dev/null
   fi

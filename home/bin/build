@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 ###
 ### $Info: Invoke cmake/make in build directory if present and generate logfile. $
 t='
