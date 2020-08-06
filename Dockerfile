@@ -42,6 +42,7 @@ RUN apt-get -y update && apt-get -y install \
     libboost-all-dev \
     libyaml-cpp-dev \
     rapidjson-dev \
+    locales \
     make \
     ninja-build \
     cmake \
@@ -115,10 +116,8 @@ RUN echo "Set disable_coredump false" >> /etc/sudo.conf \
  && ln -s $CCI_HOME/src     $CCI_HOME/include
 
 ENV USER=sc_user \
-    TZ=US/Central \
-    TERM=xterm-color \
-    EMAIL=sc_user@doulos.com \
-    HOME=/home/sc_user
+    HOME=/home/sc_user \
+    EMAIL=sc_user@doulos.com
 
 RUN adduser --home $HOME --shell /bin/bash --ingroup users --disabled-password \
       --gecos "SystemC developer" $USER \
@@ -131,5 +130,9 @@ RUN chown -R $USER $APPS $HOME \
  && chmod g+s $HOME $HOME/bin \
  && mkdir -p $HOME/work
 
+RUN locale-gen en_US.UTF-8
+ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8' \
+    TZ=US/Central \
+    TERM=xterm-color
 WORKDIR $HOME/work
 USER $USER:users
