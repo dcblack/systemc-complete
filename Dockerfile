@@ -96,6 +96,7 @@ COPY apps/cci $APPS/cci/
 RUN ln -s $APPS/src/systemc/src $SYSTEMC_HOME/src \
     && $APPS/bin/install-cci
 
+RUN pip3 install conan
 # RUN apt-get -y update && apt-get -y install \
 #     libc++
 
