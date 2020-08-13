@@ -25,6 +25,7 @@ export LD_LIBRARY_PATH=$SYSTEMC_HOME/lib
 export TEMPLATEPATH=/home/sc_user/work/templates:$SCC_APPS/sc-templates
 
 # Setup path
+PATH="$HOME/.local/bin":${PATH}
 PATH=$SCC_APPS/bin:${PATH}
 if [[ -d "$HOME/bin" ]]; then
   PATH="$HOME/bin":${PATH}
