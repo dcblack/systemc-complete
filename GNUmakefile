@@ -4,6 +4,11 @@ MAKEFILE_RULES := $(realpath $(lastword ${MAKEFILE_LIST}))
 PHONIES := $(shell perl -lane 'print $$1 if m{^([a-zA-Z][-a-zA-Z0-9_]*):[^=]*$$};' ${MAKEFILE_RULES})
 .PHONY: ${PHONIES}
 
+BUILDARGS :=
+ifdef NOSYSTEMC
+BUILDARGS += --build-arg NOSYSTEMC=${NOSYSTEMC}
+endif
+
 IMAGE := systemcc
 
 dflt: targets # Default target
@@ -15,8 +20,7 @@ preparation: # Setups that couldn't be done inside Dockerfile (yet)
 image: ${IMAGE} # Builds the docker image
 
 ${IMAGE}: preparation
-	docker build -t ${IMAGE} .
-#	docker build --build-arg DOCKER_DIR=$(dir ${MAKEFILE_RULES}) -t ${IMAGE} .
+	docker build ${BUILDARGS} -t ${IMAGE} .
 
 DANGLING:=$(shell docker images -a -q -f "dangling=true")
 clean: # Removes orphaned images
