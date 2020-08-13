@@ -34,6 +34,7 @@ SCC_HOMEDIR=/home/$SCC_USER
 SCC_ENVFILE="$(dirname $(dirname $(Realpath $0)))/etc/env.list"
 export SCC_WORKDIR=.
 export SCC_VERBOSE=0
+export VERBOSE=0
 
 # Allow user default overrides
 if [[ -r "$SCC_RC" ]]; then
@@ -59,7 +60,9 @@ while [[ "$1" =~ ^-.* ]]; do
     DEBUG=1
   elif [[ "$1" == "-q" ]]; then
     let --SCC_VERBOSE
-  elif [[ "$1" == "-v" ]]; then
+  elif [[ "$1" =~ ^-{1,2}v(erbose)?$" ]]; then
+    let ++VERBOSE
+  elif [[ "$1" == "-vv" ]]; then
     let ++SCC_VERBOSE
   elif [[ "$1" == "-e" ]]; then
     if [[ ! -r "$2" ]]; then
