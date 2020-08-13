@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SYNTAX="SYNTAX: clean [-exe|-logs|-all|-everything] [DIRLIST]"
+SYNTAX="SYNTAX: clean [-exe|-logs|-build|-most|-all] [DIRLIST]"
 
 function Realpath () {
   test -z "$*" && echo "" || \
@@ -24,16 +24,19 @@ while [[ $# -gt 0 ]]; do
     V='-v'
   elif [[ "$1" =~ ^-{1,2}a(ll)$ ]]; then
     WHAT="all"
-    OPTS=A
+    OPTS=BLX
+  elif [[ "$1" =~ ^-{1,2}b(uild)$ ]]; then
+    WHAT+=" + build"
+    OPTS+=B
   elif [[ "$1" =~ ^-{1,2}exe$ || "$1" =~ ^-x$ ]]; then
     WHAT+=" + executables"
     OPTS+=X
-  elif [[ "$1" =~ ^-{1,2}logs$ ]]; then
+  elif [[ "$1" =~ ^-{1,2}logs$  || "$1" =~ ^-L$ ]]; then
     WHAT+=" + logfiles"
     OPTS+=L
-  elif [[ "$1" =~ ^-{1,2}everything$ ]]; then
-    WHAT="everything"
-    OPTS=AXL
+  elif [[ "$1" =~ ^-{1,2}m(ost)?$ ]]; then
+    WHAT="build including logs"
+    OPTS=BL
   elif [[ "$1" =~ ^-{1,2}n(otreally)$ ]]; then
     CMND="echo '# $CMND'"
   elif [[ "$1" =~ ^- ]]; then
@@ -63,8 +66,7 @@ for DIR in ${DIRS[@]}; do
   if [[ $OPTS =~ .*X.* ]]; then
     find "$DIR" -type f -name '*.x' -exec $CMND $V {} \; 2>/dev/null
   fi
-  if [[ $OPTS =~ .*A.* ]]; then
-    find "$DIR" -type f -name '*.log' -exec $CMND $V {} \; 2>/dev/null
+  if [[ $OPTS =~ .*B.* ]]; then
     find "$DIR" -type d -name build -exec $CMND $V -fr {} \; 2>/dev/null
   fi
 done

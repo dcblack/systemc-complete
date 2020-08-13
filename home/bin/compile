@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 
-#{
-HELP=<<'HELP_TEXT'
+MARKDOWN=<<'#!sh' #<!-- { -->
 ## SYNOPSIS
 
-Simple compile
+compile simplifies C/C++ compile, link and execute
 
 ## SYNTAX
 
 ```sh
-compile [OPTIONS] [TARGET] [SOURCES]
+compile [OPTIONS] [TARGET] [SOURCE_FILES]
 ```
- + Sources must have an extension (e.g. .cpp or .c)
+ + Source files must have an extension (e.g. .cpp or .c)
 
 ## OPTIONS
 
  + `-W{flag} -D{name}={value} -I{dir} -L{dir} -l{lib} -help`
  + `-args=STRING` sets ARGS=STRING
+ + `-dump` dumps options as an aid to debugging this script
+ + `-f=MAKEFILE` specifies alternate makefile from defaults
  + `-opts` shows values of all options just prior to execution
  + `-llvm` or -gnu select the compiler tools (aka -clang or -gcc)
  + `-std=c++NN` selects the appropriate standard for C++ compilation
@@ -24,6 +25,7 @@ compile [OPTIONS] [TARGET] [SOURCES]
  + `-n` suppresses actual execution and just displays what would have been attempted
  + `--nocolor` suppresses terminal coloring
  + `--nostrict` disallows -Wno-unused-parameter (see CHKS)
+ + `--selftest` (or `-st`) followed by a source file name adds uppercase -D{:NAME:}_SELFTEST
  + Other options take the form 'NAME=VALUE'
 
 ## TARGETS
@@ -34,10 +36,10 @@ If you wish to compile only or link only, you may do so by using one of those ke
 
 Other targets are available including:
 
-Target | Description
------- | -----------
-clean  | Removes generated files (including log files)
-opts   | Same as -opt option except it will bypass compile, link and run unless you specify one of those targets in addition
+| Target | Description |
+| ------ | ----------- |
+| clean  | Removes generated files (including log files) |
+| opts   | Same as -opt option except it will bypass compile, link and run unless you specify one of those targets in addition |
 
 ## VARIABLES
 
@@ -54,27 +56,28 @@ The following are unusual to specify or modify. Many can be modified with ordina
 
 Option | Description
 ------ | -----------
-BDIR   | Build directory (default ./build)
-CC     | C compiler executable (e.g. clang or gcc)
+BDIR   | Build directory (default `./build`)
+CC     | C compiler executable (e.g. `clang` or `gcc`)
 CEXE   | Executable name (default run.x)
 CHKS   | Compiler lint warnings (default --pedantic -Wall -Wextra -Wno-unused-parameter)
 CLEAN  | List of files to clean (default everything generated)
-CLOG   | Compilation log file (default ./compile.log)
+CLOG   | Compilation log file basename (default `compile`)
 CPPSTD | C++ standard as two digits (default 17)
 CSTD   | C++ standard as two digits (default 11)
-CXX    | C++ compiler executable (e.g. clang++ or g++)
-DEBUG  | Debug compilation option (default -g)
-DEFS   | C++ definitions (e.g. -DNDEBUG)
-INCS   | Include directories (default -I.) -- SystemC added automatically
+CXX    | C++ compiler executable (e.g. `clang++` or `g++`)
+DEBUG  | Debug compilation option (default `-g`)
+DEFS   | C++ definitions (e.g. `-DNDEBUG`)
+ELOG   | Error log file (default `$BDIR/log.dir/error.log`)
+INCS   | Include directories (default `-I.`) -- SystemC added automatically
 LIBD   | Library directories -- SystemC added automatically
 LIBS   | Library names -- SystemC added automatically
-LLOG   | Link log file (default ./link.log)
+LLOG   | Link log file (default `$BDIR/log.dir/link.log`)
 LOGS   | List of log files to remove when cleaning
-ODIR   | Object directory (default $BDIR/obj.dir)
-RLOG   | Run log file (default ./run.log)
-SRCS   | Source files (default *.c *.cpp)
+ODIR   | Object directory (default `$BDIR/obj.dir`)
+RLOG   | Run log file (default `$BDIR/log.dir/run.log`)
+SRCS   | Source files (default `*.c` or `*.cpp`)
 WARN   | Additional warnings or suppression
-XDIR   | Executable directory (default .)
+XDIR   | Executable directory (default `.`)
 
 ## EXAMPLES
 
@@ -111,8 +114,9 @@ compile LOGS='compile.log link.log' clean
 
 DO perl fgrep sed basename mkdir test
 
-HELP_TEXT
-#}
+<!-- } -->
+```sh
+#!sh
 
 function Realpath () {
   test -z "$*" && echo "" || \
@@ -120,11 +124,24 @@ function Realpath () {
 }
 
 let ERRORS=0
+SCC_SELFTEST=
 declare -a KNOWN_LIST=(
   CPPEXT SRCS   BDIR   ODIR   XDIR   CC     CXX    COPT   CSTD   CPPSTD 
   CHKS   INCS   DEFS   DEBUG  CEXE   LIBD   LIBS   LIBF   EXEC   
   MNRE   CLOG   LLOG   RLOG   LOGS   CLEAN  NOTREALLY     SCC_DEBUG STRICT NOCOLOR
 )  
+
+SCC_MAKE="$SCC_APPS/make/Makefile.defs"
+# Allow local makefile override
+for f in GNUmakefile Makefile makefile; do
+  if [[ -r "$f" ]]; then
+    SCC_MAKE="$f"
+    echo "INFO: Using local $f"
+    break
+  fi
+done
+
+
 declare -A IS_KNOWN=()
 for var in ${KNOWN_LIST[@]}; do
   IS_KNOWN[$var]=1
@@ -158,7 +175,21 @@ function AddOpt() {
 # Parse supplied options (override defaults)
 while [[ $# != 0  ]]; do
   if [[ "$1" =~ ^--?h(elp)?$ ]]; then
-    printf "%s\n" $HELP
+    if which typora >/dev/null 2>&1; then
+      typora $0
+    elif which retext >/dev/null 2>&1; then
+      retext $0
+    elif which lynx >/dev/null 2>&1; then
+      if which pandoc >/dev/null 2>&1; then
+        pandoc -f gfm -t html $0 | lynx -stdin
+      elif which markdown >/dev/null 2>&1; then
+        markdown $0 | lynx -stdin
+      else
+        printf "%s\n" $MARKDOWN
+      fi
+    else
+      printf "%s\n" $MARKDOWN
+    fi
     exit 0
   elif [[ "$1" =~ ^--?debug$ ]]; then
     SCC_DEBUG=1
@@ -167,6 +198,33 @@ while [[ $# != 0  ]]; do
     dump=1; # Internal debugging
   elif [[ "$1" =~ ^--?opts$ ]]; then
     showopts=1
+  elif [[ "$1" =~ ^--?f=? ]]; then
+    if [[ "$1" == "-f" ]]; then
+      opt="$2"
+      shift
+    else
+      opt="$(echo $1|sed -e s/^[^=]+=//)"
+    fi
+    SCC_MAKE="$opt"
+  elif [[ "$1" =~ ^--?(selftest|st)$ ]]; then
+    opt="$2"
+    shift;
+    if [[ -s "$SCC_SELFTEST" ]]; then
+      echo "ERROR: Already specified $SCC_SELFTEST." 1>&2
+      let ++ERRORS
+    fi
+    if [[ "$opt" =~ ^[^.]+$ ]]; then
+      opt=$opt.cpp
+    fi
+    if [[ ! -r "$opt" ]]; then
+      echo "ERROR: '$opt' does not correspond to a valid source file for selftest." 1>&2
+      let ++ERRORS
+    fi
+    SCC_SELFTEST="$(echo $opt|tr a-z A-Z|sed -e s/[.].*/_SELFTEST/)"
+    Append SRCS "$opt"
+    AddOpt SRCS
+    Append DEFS "-D${SCC_SELFTEST}"
+    AddOpt DEFS
   elif [[ "$1" =~ ^-n$ ]]; then
     NOTREALLY=1
     AddOpt NOTREALLY
@@ -286,11 +344,11 @@ chmod a+rx $COMPILE_SCRIPT
 
 # Show options if requested
 if [[ "$showopts" == 1 ]]; then
-  printf "make -f %s %s opts\n" "$SCC_APPS/make/Makefile.defs" "${OPTS[@]}" >> $COMPILE_SCRIPT
+  printf "make -f %s %s opts\n" "$SCC_MAKE" "${OPTS[@]}" >> $COMPILE_SCRIPT
 fi
 
-printf "%% make -f %s %s %s\n" "$SCC_APPS/make/Makefile.defs" "${OPTS[@]}" "$TARG"
-printf    "make -f %s %s %s\n" "$SCC_APPS/make/Makefile.defs" "${OPTS[@]}" "$TARG" >> $COMPILE_SCRIPT
+printf "%% make -f %s %s %s\n" "$SCC_MAKE" "${OPTS[@]}" "$TARG"
+printf    "make -f %s %s %s\n" "$SCC_MAKE" "${OPTS[@]}" "$TARG" >> $COMPILE_SCRIPT
 
 printf "\n# The end\n" >>$COMPILE_SCRIPT
 
@@ -306,8 +364,9 @@ if [[ "$dump" == 1 ]]; then
     fi
   done
   printf "\n";
-  printf "  TARG=%s\n"   "$TARG"
-  printf "  OTHERS=%s\n" "$OTHERS"
+  printf "  SCC_MAKE=%s\n" "$SCC_MAKE"
+  printf "  TARG=%s\n"     "$TARG"
+  printf "  OTHERS=%s\n"   "$OTHERS"
   D10="----------" D80="$D10$D10$D10$D10$D10$D10$D10$D10"
   printf "%80.80s\n" "#-- $COMPILE_SCRIPT $D80"
   cat $COMPILE_SCRIPT
@@ -318,3 +377,6 @@ fi
 ( source $COMPILE_SCRIPT )
 
 exit $?
+
+#\
+```
