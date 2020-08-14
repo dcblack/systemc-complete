@@ -60,7 +60,7 @@ while [[ "$1" =~ ^-.* ]]; do
     DEBUG=1
   elif [[ "$1" == "-q" ]]; then
     let --SCC_VERBOSE
-  elif [[ "$1" =~ ^-{1,2}v(erbose)?$" ]]; then
+  elif [[ "$1" =~ ^-{1,2}v(erbose)?$ ]]; then
     let ++VERBOSE
   elif [[ "$1" == "-vv" ]]; then
     let ++SCC_VERBOSE
@@ -161,7 +161,9 @@ OPTIONS
 | `-h`           | Display help (aka --help)                                             |
 | `-image IMAGE` | Load specified docker image (default systemcc)                        |
 | `-md MOUNTPT`  | Mount volume to specified mount point/directory (default .) See note. |
-| `-v`           | Verbose                                                               |
+| `-q`           | Decrement SCC_VERBOSE to tone down output (quiet)                     |
+| `-v`           | Increment VERBOSE environment variable sent to systemcc               |
+| `-vv`          | Increment SCC_VERBOSE to display invocation and other trivia          |
 | `-wd WORKDIR`  | Specify relative working directory to start from (default .)          |
 
 Note: If `-md MOUNTPT` specifies and upward relative path, then the WORKDIR is
@@ -171,6 +173,8 @@ EXAMPLES
 
 ```bash
 scc
+scc compile
+scc build
 scc make
 scc -md ../.. make
 ```
@@ -225,7 +229,7 @@ scc
 COPYRIGHT & LICENSE
 -------------------
 
-Copyright 2010 by David C Black.
+Copyright 2020 by David C Black.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
