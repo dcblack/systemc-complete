@@ -34,12 +34,17 @@ The TARGET defaults to `compile link run`, which does exactly what it implies if
 
 If you wish to compile only or link only, you may do so by using one of those keywords.
 
-Other targets are available including:
+Targets available include:
 
 | Target | Description |
 | ------ | ----------- |
 | clean  | Removes generated files (including log files) |
+| link   | link (compile if necessary) |
+| objs   | compilation only |
 | opts   | Same as -opt option except it will bypass compile, link and run unless you specify one of those targets in addition |
+| run    | run executable (compile & link if needed) |
+| scan   | Runs clang static analysis |
+| tidy   | Runs clang-tidy to perform lint checking on all sources |
 
 ## VARIABLES
 
