@@ -15,14 +15,7 @@ OPTS=
 CMND="rm"
 WHAT="intermediates"
 while [[ $# -gt 0 ]]; do
-  if [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
-    echo $SYNTAX
-    exit 0
-  elif [[ "$1" =~ ^-{1,2}q(uiet)?$ ]]; then
-    V=''
-  elif [[ "$1" =~ ^-{1,2}v(erbose)?$ ]]; then
-    V='-v'
-  elif [[ "$1" =~ ^-{1,2}a(ll)$ ]]; then
+  if [[ "$1" =~ ^-{1,2}a(ll)?$ ]]; then
     WHAT="all"
     OPTS=BLX
   elif [[ "$1" =~ ^-{1,2}b(uild)$ ]]; then
@@ -31,7 +24,10 @@ while [[ $# -gt 0 ]]; do
   elif [[ "$1" =~ ^-{1,2}exe$ || "$1" =~ ^-x$ ]]; then
     WHAT+=" + executables"
     OPTS+=X
-  elif [[ "$1" =~ ^-{1,2}logs$  || "$1" =~ ^-L$ ]]; then
+  elif [[ "$1" =~ ^-{1,2}h(elp)?$ ]]; then
+    echo $SYNTAX
+    exit 0
+  elif [[ "$1" =~ ^-{1,2}l(ogs)?$  || "$1" =~ ^-L$ ]]; then
     WHAT+=" + logfiles"
     OPTS+=L
   elif [[ "$1" =~ ^-{1,2}m(ost)?$ ]]; then
@@ -39,6 +35,10 @@ while [[ $# -gt 0 ]]; do
     OPTS=BL
   elif [[ "$1" =~ ^-{1,2}n(otreally)$ ]]; then
     CMND="echo '# $CMND'"
+  elif [[ "$1" =~ ^-{1,2}q(uiet)?$ ]]; then
+    V=''
+  elif [[ "$1" =~ ^-{1,2}v(erbose)?$ ]]; then
+    V='-v'
   elif [[ "$1" =~ ^- ]]; then
     echo "ERROR: Unknown option '$1'." 1>&2
     exit 1
