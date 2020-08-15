@@ -37,7 +37,10 @@ run: # Intended usage
 	docker run $(shell pwd):/home/work -d ${IMAGE} bash ${RC} /apps/scripts/mkcourse ${ARGS}
 
 help: targets # Same as targets
-targets: # Lists target documentation
-	@echo "Targets:"; for target in ${PHONIES}; do perl -ne 'BEGIN{$$t=shift;printf qq{  %-12.12s},$$t.q{ }.(q{-} x 15)} chomp;s/^$$t:.*[#]//&&print;END{print"\n"}' $$target ${MAKEFILE_RULES}; done
+targets: # Lists targets and brief description
+	@echo "Targets:";\
+         for target in ${PHONIES}; do\
+           perl -ne 'BEGIN{$$t=shift;printf qq{  %-12.12s},$$t.q{ }.(q{-} x 15)} chomp;s/^$$t:.*[#]//&&print;END{print"\n"}' $$target ${MAKEFILE_RULES};\
+         done
 
 # The end

@@ -1,0 +1,467 @@
+#!make -f
+
+SHELL=bash
+
+ifndef SYSTEMC_HOME
+  ifdef SYSTEMC
+    SYSTEMC_HOME := ${SYSTEMC}
+  else
+    SYSTEMC_HOME := /apps/systemc
+  endif
+endif
+
+override PWD := $(realpath .)
+
+TARGET_ARCH ?= -linux64
+
+# Option defaults - *** DO NOT MODIFY - override with switches or command-line options ***
+# - Note that ?= cannot be used for variables needing later modification
+#-------------------------------------------------------------------------------
+# C++ file name extension
+CPPEXT ?= cpp
+# Log file name extension
+LOGEXT ?= log
+# List of source files (not headers) to compile (mix of C or C++)
+ifndef SRCS
+SRCS   := $(wildcard *.c *.${CPPEXT})
+endif
+# Main directory in which to place output from all execution steps
+BDIR   ?= build
+# Sub-directory to place on-the-fly created scripts
+SCRD   ?= ${BDIR}/script.dir
+# Sub-directory to hold outputs from static analysis
+ANLD   ?= ${BDIR}/analysis.dir
+# Sub-directory to place outputs from compilation (primarily object files)
+OBJD   ?= ${BDIR}/obj.dir
+# Sub-directory to contain symbolic links to all source files under Docker
+LNKD   ?= ${BDIR}/src.dir
+# Sub-directory to place log file (reporting) outputs from all steps
+LOGD   ?= ${BDIR}/log.dir
+# Sub-directory to place executable in
+XDIR   ?= .
+# Path to compiler executable for C
+CC     ?= gcc  
+# Path to compiler executable for C++
+CXX    ?= g++  
+# Path to linker executable
+ifndef LNKX
+LKRX   := ${CXX}
+endif
+# Optimization level
+ifndef COPT
+COPT   := -O0
+endif
+# C (not C++) standard to use
+ifndef CSTD
+CSTD   := 11
+endif
+# C++ standard to use
+ifndef CPPSTD
+CPPSTD := 17
+endif
+# Compile-time checks (should be set to maximum)
+ifndef CHKS
+CHKS   := --pedantic -Wall -Wextra ${WARN}
+endif
+# Directories to find include files under (-I{:DIR:} to specify:}
+ifndef INCS
+INCS   := -I.
+endif
+# Pre-compiler definitions (-D{:NAME:}[={VALUE:} to specify)
+ifndef DEFS
+DEFS   :=
+endif
+# Debug compilation switches
+DEBUG  := -g
+# Name of executable
+CEXE   := run.x
+# Name of default target
+TARG   := run
+# Directories to search for libraries (-L{:DIR:} to specify)
+ifndef LIBD
+LIBD   := 
+endif
+# Libraries used (-l{:NAME:} to specify)
+ifndef LIBS
+LIBS   := 
+endif
+# Path to libraries files that need to be part of dependencies
+ifndef LIBF
+LIBF   := 
+endif
+# Computed path to executable
+EXEC   := ${XDIR}/${CEXE}
+# Regular expression to match in determining if 'main' or 'sc_main' is present
+MNRE   := int.main
+# Analysis log file name (output from scan-build)
+ifndef ALOG
+ALOG   := ${LOGD}/scan.log
+endif
+# Tidy (lint) log file name (output from clang-tidy)
+ifndef TLOG
+TLOG   := ${LOGD}/tidy.log
+endif
+# Error log file name when compilation unsuccesful
+ifndef ELOG
+ELOG   := ${LOGD}/error.log
+endif
+# Root name of compilation log file (e.g. compile-mycode.log)
+ifndef CLOG
+CLOG   := ${LOGD}/compile
+endif
+# Linker log file
+ifndef LLOG
+LLOG   := ${LOGD}/link.log
+endif
+# Run log file (output from executing code)
+ifndef RLOG
+RLOG   := ${LOGD}/run.log
+endif
+# Gdb log file (output captured from GDB debug session)
+ifndef GLOG
+GLOG   := ${LOGD}/run.log
+endif
+# Computed lists for removal during various clean-up operations
+LOGS   := ${TLOG} ${CLOG} ${LLOG} ${RLOG} ${GLOG}
+CLEAN  := ${OBJS} *~ ${DEPS} ${SCRD}/* ${LNKS}
+
+################################################################################
+# Modifications
+ERRORS :=
+ifeq "${STRICT}" "0"
+  CHKS += -Wno-unused-parameter
+endif
+#-------------------------------------------------------------------------------
+# Macro to search all source files (.cpp) for one or more patterns
+SRCS_has=$(strip $(foreach f,${SRCS},$(foreach w,$1,$(shell grep -q -s -e "$w" "$f" 1>/dev/null && echo "$f" || echo ""))))
+
+#-------------------------------------------------------------------------------
+# Setup for SystemC if any of several key identifiers found
+ifneq "$(call SRCS_has,include.tlm systemc sc_core sc_dt sc_main SC_MODULE tlm_utils)" ""
+  # SystemC Complete
+  ifneq "$(call SRCS_has,include..scc_ include..systemcc include..tlmc)" ""
+    ifeq "$(wildcard ${SCC_HOME})" ""
+      $(error "Using SystemC Complete requires environment variable SCC_HOME to be properly defined.")
+    endif
+    ifeq "$(wildcard ${SCC_HOME}/systemcc)" ""
+      $(error SCC_HOME does not point to a valid directory.")
+    endif
+    INCS += -I${SCC_HOME}
+    SRCS += $(shell find ${SCC_HOME} -name '*.cpp' -or -name '*.c')
+  endif
+  # SystemC
+  MNRE := int.sc_main
+  ifeq "$(wildcard ${SYSTEMC_HOME}/include)" ""
+    $(error SYSTEMC_HOME is not properly defined.")
+  endif
+  SYSC := 1
+  SLIB := $(firstword $(wildcard ${SYSTEMC_HOME}/lib-${TARGET_ARCH} ${SYSTEMC_HOME}/lib))
+  ifeq "$(wildcard ${SLIB})" ""
+    $(error Missing SystemC include directory: ${SLIB}")
+    ERRORS += 1
+  endif
+  INCS += -I${SYSTEMC_HOME}/include
+  LIBD += -L${SLIB}
+  LIBS += -lsystemc -lm
+  LIBF += $(wildcard ${SLIB}/libsystemc.a)
+endif
+ifneq "$(call SRCS_has,sc_spawn)" ""
+  DEFS += -DSC_INCLUDE_DYNAMIC_PROCESSES
+endif
+ifneq "$(call SRCS_has,sc_fix sc_ufix)" ""
+  DEFS += -DSC_INCLUDE_FX
+endif
+#-------------------------------------------------------------------------------
+# Attempt to compile properly with SystemC when standards don't match default
+ifeq ($(CPPSTD),98)
+     # (C++03, ISO/IEC 14882:1998, 14882:2003)
+     DEFS += -DSC_CPLUSPLUS=199701L
+endif
+ifeq ($(CPPSTD),11)
+     # (C++11, ISO/IEC 14882:2011)
+     DEFS += -DSC_CPLUSPLUS=201103L
+endif
+ifeq ($(CPPSTD),14)
+     # (C++14, ISO/IEC 14882:2014)
+     DEFS += -DSC_CPLUSPLUS=201402L
+endif
+ifeq ($(CPPSTD),17)
+     # (C++17, N4659: Working Draft, Standard for Programming Language C++)
+     DEFS += -DSC_CPLUSPLUS=201703L
+endif
+
+#-------------------------------------------------------------------------------
+ifneq "$(call SRCS_has,<thread> <mutex>)" ""
+  $(info Adding threads)
+  LIBS += -lpthread
+  COPT += -pthread
+endif
+
+#-------------------------------------------------------------------------------
+ifneq "$(call SRCS_has,boost/)" ""
+  ifndef BOOST_HOME
+    $(error If using BOOST, then must specify BOOST_HOME)
+  endif
+  ifeq "$(wildcard ${BOOST_HOME}/include/boost)" ""
+    $(error BOOST_HOME does not point to a valid directory)
+  endif
+  INCS += -I${BOOST_HOME}/include/boost
+  LIBD += -L${BOOST_HOME}/lib
+  # User must also specify -l{LIBNAME} for each compiled boost file
+endif
+
+#-------------------------------------------------------------------------------
+ifneq "$(findstring -DSELFTEST,${DEFS})" ""
+  MAIN:=$(strip $(call SRCS_has,_SELFTEST))
+  ifneq "$(words ${MAIN})" "1"
+    $(warning More than one _SELFTEST found: ${MAIN})
+  endif
+  MAIN:=$(wildcard $(firstword ${MAIN}))
+  ifneq "${MAIN}" ""
+    DEFN := $(shell perl -lne 'if(m{ifdef ([[:alnum:]]+_SELFTEST)}){print $$1}' ${MAIN})
+    DEFS := $(subst -DSELFTEST,-D${DEFN},${DEFS})
+    $(info Updated to -D${DEFN})
+  else
+    $(warning Unable to find SELFTEST with ${MAIN})
+  endif
+endif
+
+#-------------------------------------------------------------------------------
+LNKS := $(foreach F,${SRCS},${LNKD}/$(notdir $F))
+OBJS := $(foreach F,$(patsubst %.c,%.o,$(patsubst %.${CPPEXT},%.o,${SRCS})),${OBJD}/$(notdir $F))
+DEPS := $(foreach F,$(patsubst %.o,%.P,${OBJS}),${OBJD}/$(notdir $F))
+
+HAVE_MAIN := $(call SRCS_has,${MNRE})
+WHAT_MAIN := $(subst int.,,${MNRE})
+
+MAKEFILE_RULES := $(realpath $(lastword $(MAKEFILE_LIST)))
+PHONIES := $(shell perl -lane 'print $$1 if m{^([a-zA-Z][-a-zA-Z0-9_]*):[^=]*$$};' ${MAKEFILE_RULES})
+.PHONY: ${PHONIES}
+
+################################################################################
+# For easier debug of output log files
+ifndef NOCOLOR
+  USE_COLOR:=1
+endif
+ifeq "$(USE_COLOR)" "1"
+  BOLD := [01m
+  UNDR := [04m
+  NONE := [00m
+  CRED := [31m
+  CGRN := [32m
+  CYLW := [33m
+  CBLU := [34m
+  CMAG := [35m
+  CCYN := [36m
+  CWHT := [37m
+  CBLK := [38m
+else
+  BOLD :=
+  UNDR :=
+  NONE :=
+  CRED :=
+  CGRN :=
+  CYLW :=
+  CBLU :=
+  CMAG :=
+  CCYN :=
+  CWHT :=
+  CBLK :=
+endif
+
+
+default: ${TARG} # Default target (defined by TARG
+
+################################################################################
+## Create executable
+link: ${EXEC} # Create executable
+
+################################################################################
+## Compile all objects
+compile obj: objs
+objs: ${OBJS} # Compile all object files
+
+${OBJS}: | ${OBJD} ${LNKS}
+
+${LNKS}: ${LNKD} ${SRCS}
+	@for F in $(foreach F,${SRCS},$(realpath $F)); do T=${LNKD}/$$(basename $$F); test -L $$T || ln -s $$F $$T; done
+
+${LNKD}:
+	@-rm -fr ${LNKD}; mkdir -p "${LNKD}"
+
+${OBJD}:
+	@mkdir -p "${LOGD}"
+	@mkdir -p "${OBJD}"
+	@mkdir -p "${ANLD}"
+
+################################################################################
+## Execute (run) code -- build as needed
+override SCC_RUN=${EXEC} ${ARGS} 2>&1 | tee -a ${RLOG}
+run: ${EXEC} # Run the resulting executable (specify run-time arguments with ARGS=)
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_RUN}'
+else
+	@echo "${CGRN}# Running${NONE}" | tee ${RLOG}
+	@echo '% ${SCC_RUN}' >> ${RLOG}
+	env   LD_LIBRARY_PATH=${SLIB}:${LD_LIBRARY_PATH} \
+	    ${SCC_RUN}
+        @echo "INFO: Created ${RLOG}"
+endif
+
+################################################################################
+## Debug code under gdb -- build as needed
+override SCC_DBG=gdb ${EXEC} -e 'set args ${ARGS}' 2>&1 | tee -a ${GLOG}
+gdb: ${EXEC} # Run code under gdb debugger
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_RUN}'
+else
+	@echo "${CGRN}# Running${NONE}" | tee ${GLOG}
+	@echo '% ${SCC_RUN}' >> ${GLOG}
+	env   LD_LIBRARY_PATH=${SLIB}:${LD_LIBRARY_PATH} \
+	    ${SCC_RUN}
+        @echo "INFO: Created ${GLOG}"
+endif
+
+################################################################################
+## Link
+override SCC_LINK=${LKRX} ${LIBD} ${LIBS} -o $@ ${OBJS} 2>&1 | c++filt | tee -a ${LLOG}
+${EXEC}: ${OBJS} ${LIBF}
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_LINK}'
+else
+	@test -s "${HAVE_MAIN}" || (echo "Missing '${WHAT_MAIN}'" 1>&2 && exit 0)
+	@echo "${CGRN}# Linking $@${NONE}" | tee ${LLOG}
+	@echo '% ${SCC_LINK}' >> ${LLOG}
+	set -o pipefail; ${SCC_LINK}
+        @echo "INFO: Created ${LLOG}"
+endif
+
+################################################################################
+## Static analysis
+override SCC_ANAL=scan-build -o ${ANLD} $$CXX $$FILE -std=c++${CPPSTD} ${CHKS} ${COPT} ${DEFS} ${INCS} 2>&1 | tee -a ${ALOG}
+scan: # Perform static analysis of code using scan-build
+ifeq "${NOTREALLY}" "1"
+	@for FILE in ${LNKS}; do echo '% ${SCC_ANAL}'; done
+else
+	@echo "${CGRN}# Static Analysis Scan${NONE}" | tee ${ALOG}
+	@for FILE in ${LNKS}; do echo '% ${SCC_ANAL}' | tee -a ${ALOG}; ${SCC_ANAL}; done
+        @echo "INFO: Created ${ALOG}"
+endif
+
+################################################################################
+## Lint C++
+override SCC_TIDY=clang-tidy ${LNKS} -- -std=c++${CPPSTD} ${CHKS} ${COPT} ${DEFS} ${INCS} 2>&1 | tee -a ${TLOG}
+tidy: # Run clang-tidy to perform lint analysis of code
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_TIDY}'
+else
+	@echo "${CGRN}# Linting ${NONE}" | tee ${TLOG}
+	@echo '% ${SCC_TIDY}' >> ${TLOG}
+	${SCC_TIDY}
+        @echo "INFO: Created ${TLOG}"
+	@if [[ "$(shell wc -l ${TLOG}|perl -lane 'print shift @F')" == 2 ]];\
+         then echo "No lint issues discovered -- good job";\
+         else echo "Issues found. Please fix."; \
+         fi
+endif
+
+################################################################################
+## Compile C
+## based on http://www.paulandlesley.org/gmake/autodep.html
+override SCC_COMPILE_C=${CC} -std=c${CSTD} ${CHKS} ${COPT} -g ${DEFS} ${INCS} -MMD -o "$@" -c $< 2>&1 | tee -a ${ELOG}
+${OBJD}/%.o : ${LNKD}/%.c
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_COMPILE_C}'
+else
+	@echo "${CGRN}# Compiling $<${NONE}" | tee ${ELOG}
+	@echo '% ${SCC_COMPILE_C}' >> ${ELOG}
+	set -o pipefail; ${SCC_COMPILE_C}
+	@mv ${ELOG} ${CLOG}-$*.${LOGEXT}; echo "INFO: Created ${CLOG}-$*.${LOGEXT}"
+	@cp ${OBJD}/$(*F).d ${OBJD}/$(*F).P; \
+	sed  < ${OBJD}/$(*F).d >> ${OBJD}/$(*F).P\
+	    -e 's/[\#].*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+	    -e '/^$$/ d' -e 's/$$/ :/'; \
+	rm -f ${OBJD}/$(*F).d
+endif
+
+################################################################################
+## Compile C++
+## based on http://www.paulandlesley.org/gmake/autodep.html
+override SCC_COMPILE_CXX=${CXX} -std=c++${CPPSTD} ${CHKS} ${COPT} -g ${DEFS} ${INCS} -MMD -o "$@" -c $< 2>&1 | tee -a ${ELOG}
+${OBJD}/%.o : ${LNKD}/%.${CPPEXT}
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_COMPILE_CXX}'
+else
+	@echo "${CGRN}# Compiling $<${NONE}" | tee ${ELOG}
+	@echo '% ${SCC_COMPILE_CXX}' >> ${ELOG}
+	set -o pipefail; ${SCC_COMPILE_CXX}
+	@mv ${ELOG} ${CLOG}-$*.${LOGEXT}; echo "INFO: Created ${CLOG}-$*.${LOGEXT}"
+	@cp ${OBJD}/$(*F).d ${OBJD}/$(*F).P; \
+	sed  < ${OBJD}/$(*F).d >> ${OBJD}/$(*F).P\
+	    -e 's/[\#].*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+	    -e '/^$$/ d' -e 's/$$/ :/'; \
+	rm -f ${OBJD}/$(*F).d
+endif
+
+################################################################################
+setup: # internal
+	rm -f ${LLOG} ${RLOG} ${GLOG}
+
+################################################################################
+## Cleaning
+override SCC_CLEAN=rm -f$(if ${VERBOSE},v) ${CLEAN}
+clean: # Clean up intermediates to allow fresh compilation
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_CLEAN}'
+else
+	@echo "${CGRN}Cleaning${NONE}"
+	-${SCC_CLEAN}
+endif
+
+override SCC_SPOTLESS=rm -frv$(if ${VERBOSE},v) ${CLEAN} ${EXEC} ${LOGS} ${BDIR}
+spotless: # Remove all generated files
+ifeq "${NOTREALLY}" "1"
+	@echo '% ${SCC_SPOTLESS}'
+else
+	@echo "${CGRN}Spotless${NONE}"
+	-${SCC_SPOTLESS}
+endif
+
+targets: # Lists targets and brief description
+	@echo "Targets:" ;\
+         for target in ${PHONIES}; do\
+           perl -ne 'BEGIN{$$t=shift;printf qq{  %-12.12s},$$t.q{ }.(q{-} x 15)} chomp;s/^$$t:.*[#]//&&print;END{print"\n"}' $$target ${MAKEFILE_RULES};\
+         done
+
+opts: # Display make variables to aid debug of make issues
+	@echo "Makefile options:" ;\
+	 perl -le 'print q{-} x 80;'
+	@echo "SRCS=${SRCS}"      ;\
+	 echo "CXX=${CXX} CPPSTD=${CPPSTD} COPT=${COPT}" ;\
+	 echo "CC =${CC}  CSTD=${CPPSTD}" ;\
+	 echo "CHKS=${CHKS}"      ;\
+	 echo "DEFS=${DEFS}"      ;\
+	 echo "INCS=${INCS}"      ;\
+	 echo "LIBD=${LIBD} LIBS=${LIBS}"      ;\
+	 echo "BDIR=${BDIR} LNKD=${LNKD} OBJD=${OBJD} XDIR=${XDIR}"      ;\
+	 echo "LNKS=${LNKS}"      ;\
+	 echo "OBJS=${OBJS}"      ;\
+	 echo "DEPS=${DEPS}"      ;\
+	 echo "CEXE=${CEXE}"      ;\
+	 echo "PWD=${PWD}"
+	@echo "Has systemc  => '"$(call SRCS_has,systemc include.tlm sc_core sc_dt sc_main SC_MODULE tlm_utils)"'"; \
+	 echo "Has systemcc => '"$(call SRCS_has,include..scc_ include..systemcc include..tlmc)"'"; \
+	 echo "Has dynamic  => '"$(call SRCS_has,sc_spawn)"'"; \
+	 echo "Has fixedpt  => '"$(call SRCS_has,sc_fix sc_ufix)"'"; \
+	 echo "Has c++thrd  => '"$(call SRCS_has,<thread> <mutex>)"'"; \
+	 echo "Has main     => '"${HAVE_MAIN}"' => ${WHAT_MAIN}";
+	@perl -le 'print q{-} x 80;'
+
+mkopts: # Internal information useful to debug Makefile.defs
+	@echo "Makefile options:" ;\
+	 perl -le 'print q{-} x 80;'
+	@echo "PHONIES=${PHONIES}";\
+	 echo "MNRE=${MNRE}"      ;
+	@perl -le 'print q{-} x 80;'
+
+-include ${DEPS}
