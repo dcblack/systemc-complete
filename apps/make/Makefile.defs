@@ -1,4 +1,30 @@
 #!make -f
+#
+# The makefile is based on GNU make (sometimes known as gmake), and is fairly
+# sophisticated in its use of the GNU make extensions. Comments that start
+# with #: indicates their use as part of the help target.
+#
+#: Makefile.defs is part of the SystemC-Complete toolset based on Docker
+#:
+#:<USAGE
+#:
+#: make -f /apps/make/Makefile.defs SRCS="LIST_OF_SOURCES" [TARGET] [VAR=VAL...]
+#:
+#: -OR- create your own Makefile that includes the above. For example:
+#:
+#: cat >Makefile <<'EOF'
+#:<#!make -f
+#:<SRCS=$(wildcard *.cpp)
+#:<RULES:=$(firstword $(wildcard $(addsuffix /Makefile.defs,${SCC_APPS}/make ../.. .. .)))
+#:<$(if ${RULES},$(info INFO: Including $(realpath ${RULES})),$(error Could not find Makefile.defs))
+#:<include ${RULES}
+#:<EOF
+#:
+#: make [TARGET] [VAR=VAL...]
+#:
+#:<COPYRIGHT & LICENSE
+#: Copyright 2020 by David C Black.
+#: This file is open-source and licensed under Apache 2.0.
 
 SHELL=bash
 
@@ -270,7 +296,7 @@ else
 endif
 
 
-default: ${TARG} # Default target (defined by TARG
+default: ${TARG} # Default target (defined by TARG)
 
 ################################################################################
 ## Create executable
@@ -427,11 +453,16 @@ else
 	-${SCC_SPOTLESS}
 endif
 
+help: # Provides a bit more information
+	@echo "HELP";\
+         perl -lne 'if(m{^#:}){s{^#:<}{};s{^#:}{};s{^ }{  };print;}END{print q{};}' ${MAKEFILE_RULES}; \
+	 ${MAKE} -s targets
+
 targets: # Lists targets and brief description
-	@echo "Targets:" ;\
+	@echo "TARGETS" ;\
          for target in ${PHONIES}; do\
            perl -ne 'BEGIN{$$t=shift;printf qq{  %-12.12s},$$t.q{ }.(q{-} x 15)} chomp;s/^$$t:.*[#]//&&print;END{print"\n"}' $$target ${MAKEFILE_RULES};\
-         done
+         done | sort
 
 opts: # Display make variables to aid debug of make issues
 	@echo "Makefile options:" ;\
