@@ -49,7 +49,9 @@ CPPEXT ?= cpp
 LOGEXT ?= log
 # List of source files (not headers) to compile (mix of C or C++)
 ifndef SRCS
+ifeq "$(findstring ${MAKECMDGOALS},help targets)" ""
 SRCS   := $(wildcard *.c *.${CPPEXT})
+endif
 endif
 # Main directory in which to place output from all execution steps
 BDIR   ?= build
@@ -218,7 +220,7 @@ endif
 
 #-------------------------------------------------------------------------------
 ifneq "$(call SRCS_has,<thread> <mutex>)" ""
-  $(info Adding threads)
+$(info INFO: Adding threads)
   LIBS += -lpthread
   COPT += -pthread
 endif
@@ -243,10 +245,15 @@ ifneq "$(findstring -DSELFTEST,${DEFS})" ""
     $(warning More than one _SELFTEST found: ${MAIN})
   endif
   MAIN:=$(wildcard $(firstword ${MAIN}))
+  $(info DEBUG: Found ${MAIN})
   ifneq "${MAIN}" ""
-    DEFN := $(shell perl -lne 'if(m{ifdef ([[:alnum:]]+_SELFTEST)}){print $$1}' ${MAIN})
+    DEFN := $(shell perl -lne 'if(m{ifdef ([a-zA-Z_0-9]+_SELFTEST)}){print $$1}' ${MAIN})
+    ifneq "${DEFN}" ""
     DEFS := $(subst -DSELFTEST,-D${DEFN},${DEFS})
-    $(info Updated to -D${DEFN})
+    $(info INFO: DEFS updated to -D${DEFN})
+    else
+    $(info WARNING: No SELFTEST in ${MAIN})
+    endif
   else
     $(warning Unable to find SELFTEST with ${MAIN})
   endif
@@ -341,10 +348,10 @@ gdb: ${EXEC} # Run code under gdb debugger
 ifeq "${NOTREALLY}" "1"
 	@echo '% ${SCC_RUN}'
 else
-	@echo "${CGRN}# Running${NONE}" | tee ${GLOG}
-	@echo '% ${SCC_RUN}' >> ${GLOG}
+	@echo "${CGRN}# Debugging${NONE}" | tee ${GLOG}
+	@echo '% ${SCC_DBG}' >> ${GLOG}
 	env   LD_LIBRARY_PATH=${SLIB}:${LD_LIBRARY_PATH} \
-	    ${SCC_RUN}
+	    ${SCC_DBG}
         @echo "INFO: Created ${GLOG}"
 endif
 
@@ -456,7 +463,7 @@ endif
 help: # Provides a bit more information
 	@echo "HELP";\
          perl -lne 'if(m{^#:}){s{^#:<}{};s{^#:}{};s{^ }{  };print;}END{print q{};}' ${MAKEFILE_RULES}; \
-	 ${MAKE} -s targets
+	 make -f ${MAKEFILE_RULES} -s targets
 
 targets: # Lists targets and brief description
 	@echo "TARGETS" ;\
