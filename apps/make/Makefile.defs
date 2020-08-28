@@ -53,6 +53,19 @@ ifeq "$(findstring ${MAKECMDGOALS},help targets)" ""
 SRCS   := $(wildcard *.c *.${CPPEXT})
 endif
 endif
+# See if any source files exist under the alternate directory and use them in preference.
+# Additionally, check for the existence of all specified files.
+ifdef ALTD
+  ifeq "$(wildcard ${ALTD}/.)" ""
+    $(error ALTD must be a valid directory)
+  endif
+  SRCS   := $(foreach f,${SRCS},$(firstword $(wildcard ${ALTD}/$f $f) MISSING-$f))
+  ifdef INCS
+    INCS := -I${ALTD} ${INCS}
+  else
+    INCS := -I${ALTD} -I.
+  endif
+endif
 # Main directory in which to place output from all execution steps
 BDIR   ?= build
 # Sub-directory to place on-the-fly created scripts
@@ -61,8 +74,8 @@ SCRD   ?= ${BDIR}/script.dir
 ANLD   ?= ${BDIR}/analysis.dir
 # Sub-directory to place outputs from compilation (primarily object files)
 OBJD   ?= ${BDIR}/obj.dir
-# Sub-directory to contain symbolic links to all source files under Docker
-LNKD   ?= ${BDIR}/src.dir
+# Sub-directory to contain copies of all source files under Docker
+SRCD   ?= ${BDIR}/src.dir
 # Sub-directory to place log file (reporting) outputs from all steps
 LOGD   ?= ${BDIR}/log.dir
 # Sub-directory to place executable in
@@ -150,8 +163,8 @@ ifndef GLOG
 GLOG   := ${LOGD}/run.log
 endif
 # Computed lists for removal during various clean-up operations
-LOGS   := ${TLOG} ${CLOG} ${LLOG} ${RLOG} ${GLOG}
-CLEAN  := ${OBJS} *~ ${DEPS} ${SCRD}/* ${LNKS}
+LOGS   = ${TLOG} ${CLOG} ${LLOG} ${RLOG} ${GLOG}
+CLEAN  = ${OBJS} *~ ${DEPS} ${SCRD}/* ${LNKS}
 
 ################################################################################
 # Modifications
@@ -159,6 +172,8 @@ ERRORS :=
 ifeq "${STRICT}" "0"
   CHKS += -Wno-unused-parameter
 endif
+#-------------------------------------------------------------------------------
+# Macro to determine relative path
 #-------------------------------------------------------------------------------
 # Macro to search all source files (.cpp) for one or more patterns
 SRCS_has=$(strip $(foreach f,${SRCS},$(foreach w,$1,$(shell grep -q -s -e "$w" "$f" 1>/dev/null && echo "$f" || echo ""))))
@@ -260,7 +275,7 @@ ifneq "$(findstring -DSELFTEST,${DEFS})" ""
 endif
 
 #-------------------------------------------------------------------------------
-LNKS := $(foreach F,${SRCS},${LNKD}/$(notdir $F))
+LNKS := $(foreach F,${SRCS},${SRCD}/$(notdir $F))
 OBJS := $(foreach F,$(patsubst %.c,%.o,$(patsubst %.${CPPEXT},%.o,${SRCS})),${OBJD}/$(notdir $F))
 DEPS := $(foreach F,$(patsubst %.o,%.P,${OBJS}),${OBJD}/$(notdir $F))
 
@@ -307,7 +322,7 @@ default: ${TARG} # Default target (defined by TARG)
 
 ################################################################################
 ## Create executable
-link: ${EXEC} # Create executable
+link exe: ${EXEC} # Create executable
 
 ################################################################################
 ## Compile all objects
@@ -316,11 +331,11 @@ objs: ${OBJS} # Compile all object files
 
 ${OBJS}: | ${OBJD} ${LNKS}
 
-${LNKS}: ${LNKD} ${SRCS}
-	@for F in $(foreach F,${SRCS},$(realpath $F)); do T=${LNKD}/$$(basename $$F); test -L $$T || ln -s $$F $$T; done
+${LNKS}: ${SRCD} ${SRCS}
+	@for F in $(foreach F,${SRCS},$(realpath $F)); do T=${SRCD}/$$(basename $$F); rsync -au $$F $$T; done
 
-${LNKD}:
-	@-rm -fr ${LNKD}; mkdir -p "${LNKD}"
+${SRCD}:
+	@-rm -fr ${SRCD}; mkdir -p "${SRCD}"
 
 ${OBJD}:
 	@mkdir -p "${LOGD}"
@@ -336,8 +351,12 @@ ifeq "${NOTREALLY}" "1"
 else
 	@echo "${CGRN}# Running${NONE}" | tee ${RLOG}
 	@echo '% ${SCC_RUN}' >> ${RLOG}
-	env   LD_LIBRARY_PATH=${SLIB}:${LD_LIBRARY_PATH} \
+  ifneq "${SLIB}" "" # Include dynamically linked libraries
+	env LD_LIBRARY_PATH=${SLIB}:${LD_LIBRARY_PATH} \
 	    ${SCC_RUN}
+  else
+	${SCC_RUN}
+  endif
         @echo "INFO: Created ${RLOG}"
 endif
 
@@ -402,7 +421,7 @@ endif
 ## Compile C
 ## based on http://www.paulandlesley.org/gmake/autodep.html
 override SCC_COMPILE_C=${CC} -std=c${CSTD} ${CHKS} ${COPT} -g ${DEFS} ${INCS} -MMD -o "$@" -c $< 2>&1 | tee -a ${ELOG}
-${OBJD}/%.o : ${LNKD}/%.c
+${OBJD}/%.o : ${SRCD}/%.c
 ifeq "${NOTREALLY}" "1"
 	@echo '% ${SCC_COMPILE_C}'
 else
@@ -421,7 +440,7 @@ endif
 ## Compile C++
 ## based on http://www.paulandlesley.org/gmake/autodep.html
 override SCC_COMPILE_CXX=${CXX} -std=c++${CPPSTD} ${CHKS} ${COPT} -g ${DEFS} ${INCS} -MMD -o "$@" -c $< 2>&1 | tee -a ${ELOG}
-${OBJD}/%.o : ${LNKD}/%.${CPPEXT}
+${OBJD}/%.o : ${SRCD}/%.${CPPEXT}
 ifeq "${NOTREALLY}" "1"
 	@echo '% ${SCC_COMPILE_CXX}'
 else
@@ -481,7 +500,7 @@ opts: # Display make variables to aid debug of make issues
 	 echo "DEFS=${DEFS}"      ;\
 	 echo "INCS=${INCS}"      ;\
 	 echo "LIBD=${LIBD} LIBS=${LIBS}"      ;\
-	 echo "BDIR=${BDIR} LNKD=${LNKD} OBJD=${OBJD} XDIR=${XDIR}"      ;\
+	 echo "BDIR=${BDIR} SRCD=${SRCD} OBJD=${OBJD} XDIR=${XDIR}"      ;\
 	 echo "LNKS=${LNKS}"      ;\
 	 echo "OBJS=${OBJS}"      ;\
 	 echo "DEPS=${DEPS}"      ;\
