@@ -3,7 +3,7 @@
 # Requires
 #   execute-only: bash
 #
-FROM ubuntu:latest
+FROM ubuntu:groovy-20210416
 LABEL description="SystemC-Complete - Tools to compile SystemC with GCC & Clang under Ubuntu" \
       maintainer="David Black <david.black@doulos.com>" alternate="dcblack@mac.com"
 
